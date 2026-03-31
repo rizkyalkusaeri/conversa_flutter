@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../cubit/login_cubit.dart';
+
 class LoginPage extends StatelessWidget {
   LoginPage({super.key});
 
@@ -72,7 +73,11 @@ class LoginPage extends StatelessWidget {
 
                   // INPUT USERNAME
                   _buildLabel("USERNAME"),
-                  _buildTextField(usernameController, Icons.person, "Masukkan username..."),
+                  _buildTextField(
+                    usernameController,
+                    Icons.person,
+                    "Masukkan username...",
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -97,7 +102,7 @@ class LoginPage extends StatelessWidget {
                   _buildTextField(
                     passwordController,
                     Icons.lock,
-                    "",
+                    "Masukkan password...",
                     isPassword: state.isPasswordVisible,
                     onSuffixIconPressed: () {
                       context.read<LoginCubit>().togglePasswordVisibility();

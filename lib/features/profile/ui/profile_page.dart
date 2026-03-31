@@ -19,9 +19,10 @@ class ProfilePage extends StatelessWidget {
           title: const Text(
             'Profile',
             style: TextStyle(
-                color: AppColors.textDark,
-                fontWeight: FontWeight.bold,
-                fontSize: 18),
+              color: AppColors.textDark,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
           ),
           centerTitle: true,
           backgroundColor: Colors.white,
@@ -51,11 +52,15 @@ class ProfilePage extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(state.message, style: const TextStyle(color: Colors.red)),
+                      Text(
+                        state.message,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                       ElevatedButton(
-                        onPressed: () => context.read<ProfileCubit>().getProfileDetails(),
+                        onPressed: () =>
+                            context.read<ProfileCubit>().getProfileDetails(),
                         child: const Text("Retry"),
-                      )
+                      ),
                     ],
                   ),
                 );
@@ -71,7 +76,10 @@ class ProfilePage extends StatelessWidget {
             }
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 16.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -102,7 +110,10 @@ class ProfilePage extends StatelessWidget {
     // Ekstraksi huruf inisial
     String initials = "U";
     if (user.fullName.isNotEmpty) {
-      final parts = user.fullName.split(" ").where((e) => e.isNotEmpty).toList();
+      final parts = user.fullName
+          .split(" ")
+          .where((e) => e.isNotEmpty)
+          .toList();
       if (parts.length > 1) {
         initials = "${parts[0][0]}${parts[1][0]}".toUpperCase();
       } else {
@@ -190,7 +201,7 @@ class ProfilePage extends StatelessWidget {
             color: Colors.grey.withOpacity(0.05),
             offset: const Offset(0, 4),
             blurRadius: 10,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -212,10 +223,7 @@ class ProfilePage extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -234,7 +242,7 @@ class ProfilePage extends StatelessWidget {
             color: Colors.grey.withOpacity(0.03),
             offset: const Offset(0, 4),
             blurRadius: 15,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -312,6 +320,7 @@ class ProfilePage extends StatelessWidget {
   // Logout Button Terbawah
   Widget _buildLogoutButton(BuildContext context) {
     return InkWell(
+      hoverColor: Colors.transparent,
       onTap: () {
         // Panggil Global AppAuthCubit logOut
         context.read<AppAuthCubit>().logOut();
@@ -328,7 +337,7 @@ class ProfilePage extends StatelessWidget {
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
-          )
+          ),
         ],
       ),
     );
