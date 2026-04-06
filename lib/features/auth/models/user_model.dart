@@ -32,10 +32,10 @@ class UserModel {
       id: json['id'] ?? 0,
       fullName: json['full_name'] ?? '',
       username: json['username'] ?? '',
-      role: getRelationName(json['role'], 'role_name') ?? json['role']?.toString(), // Handle direct string OR object
+      role: getRelationName(json['role'], 'role_name') ?? json['role']?.toString() ?? json['role_name']?.toString(), // Handle direct string OR object OR role_name root key
       fcmToken: json['fcm_token'],
       location: getRelationName(json['location'], 'location_name'),
-      level: getRelationName(json['level'], 'level_name'), 
+      level: getRelationName(json['level'], 'name') ?? json['level']?.toString(), 
     );
   }
 

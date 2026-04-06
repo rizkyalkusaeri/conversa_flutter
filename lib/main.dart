@@ -19,15 +19,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Inject dependencies utama skala App
     return MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider(create: (context) => AuthRepository()),
-      ],
+      providers: [RepositoryProvider(create: (context) => AuthRepository())],
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (context) => AppAuthCubit(
-              authRepository: context.read<AuthRepository>(),
-            )..checkAuthStatus(), // Langsung cek saat aplikasi hidup
+            create: (context) =>
+                AppAuthCubit(authRepository: context.read<AuthRepository>())
+                  ..checkAuthStatus(), // Langsung cek saat aplikasi hidup
           ),
         ],
         child: MaterialApp(
@@ -36,7 +34,7 @@ class MyApp extends StatelessWidget {
           home: BlocBuilder<AppAuthCubit, AppAuthState>(
             builder: (context, state) {
               if (state is AppAuthAuthenticated) {
-                // Return MainPage (wrapper BottomNavigation) ketika login 
+                // Return MainPage (wrapper BottomNavigation) ketika login
                 return const MainPage();
               }
               if (state is AppAuthUnauthenticated) {
