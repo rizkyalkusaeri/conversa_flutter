@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/create_session_cubit.dart';
 import '../cubit/create_session_state.dart';
 import '../../../core/constants/app_colors.dart';
-import '../models/master_data_model.dart';
-import '../repository/session_repository.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/form_label.dart';
 import '../../../core/widgets/form_text_field.dart';
@@ -101,7 +101,12 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
       },
       child: Container(
         height: MediaQuery.of(context).size.height * 0.9,
-        padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 0),
+        padding: EdgeInsets.only(
+          top: 24,
+          left: 24,
+          right: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(

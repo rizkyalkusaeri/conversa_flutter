@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/widgets/app_version_text.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/cubit/app_auth/app_auth_cubit.dart';
-import '../../auth/models/user_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import '../cubit/profile_cubit.dart';
 import '../cubit/profile_state.dart';
+import 'change_password_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -27,12 +29,7 @@ class ProfilePage extends StatelessWidget {
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings, color: AppColors.textDark),
-              onPressed: () {},
-            ),
-          ],
+          actions: [],
         ),
         body: BlocBuilder<ProfileCubit, ProfileState>(
           builder: (context, state) {
@@ -91,10 +88,7 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 48),
                   _buildLogoutButton(context),
                   const SizedBox(height: 24),
-                  const Text(
-                    "Version 1.0.0",
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
+                  const AppVersionText(),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -198,7 +192,7 @@ class ProfilePage extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             offset: const Offset(0, 4),
             blurRadius: 10,
           ),
@@ -239,7 +233,7 @@ class ProfilePage extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.03),
+            color: Colors.grey.withValues(alpha: 0.03),
             offset: const Offset(0, 4),
             blurRadius: 15,
           ),
@@ -248,6 +242,7 @@ class ProfilePage extends StatelessWidget {
       child: Column(
         children: [
           _buildListTile(
+            context: context,
             icon: Icons.notifications_none,
             title: "Notifications",
             iconBgColor: AppColors.primaryContainer,
@@ -264,13 +259,23 @@ class ProfilePage extends StatelessWidget {
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
           _buildListTile(
+            context: context,
             icon: Icons.lock_outline,
-            title: "Privacy & Security",
+            title: "Change Password",
             iconBgColor: AppColors.primaryContainer,
             iconColor: AppColors.primary,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChangePasswordPage(),
+                ),
+              );
+            },
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
           _buildListTile(
+            context: context,
             icon: Icons.help_outline,
             title: "Help & Support",
             iconBgColor: AppColors.primaryContainer,
@@ -282,11 +287,13 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildListTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required Color iconBgColor,
     required Color iconColor,
     Widget? trailingWidget,
+    VoidCallback? onTap,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -309,11 +316,11 @@ class ProfilePage extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (trailingWidget != null) trailingWidget,
+          ?trailingWidget,
           const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         ],
       ),
-      onTap: () {},
+      onTap: onTap,
     );
   }
 

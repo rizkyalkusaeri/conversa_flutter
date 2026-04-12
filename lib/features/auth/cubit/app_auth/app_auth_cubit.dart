@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'app_auth_state.dart';
-import '../../models/user_model.dart';
-import '../../repository/auth_repository.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
 import '../../../../core/storage/storage_manager.dart';
 
 class AppAuthCubit extends Cubit<AppAuthState> {

@@ -5,14 +5,20 @@ class FormTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final int maxLines;
+  final bool obscureText;
   final String? Function(String?)? validator;
+  final VoidCallback? onSuffixIconPressed;
+  final IconData? prefixIcon;
 
   const FormTextField({
     super.key,
     required this.controller,
     required this.hintText,
     this.maxLines = 1,
+    this.obscureText = false,
     this.validator,
+    this.onSuffixIconPressed,
+    this.prefixIcon,
   });
 
   @override
@@ -25,6 +31,7 @@ class FormTextField extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
+        obscureText: obscureText,
         style: const TextStyle(
           color: AppColors.textDark,
           fontWeight: FontWeight.w500,
@@ -37,6 +44,18 @@ class FormTextField extends StatelessWidget {
             horizontal: 20,
             vertical: 16,
           ),
+          prefixIcon: prefixIcon != null
+              ? Icon(prefixIcon, color: const Color(0xFF9CA3AF))
+              : null,
+          suffixIcon: onSuffixIconPressed != null
+              ? IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility : Icons.visibility_off,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                  onPressed: onSuffixIconPressed,
+                )
+              : null,
         ),
         validator: validator,
       ),

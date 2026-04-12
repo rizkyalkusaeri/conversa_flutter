@@ -1,7 +1,8 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:bloc/bloc.dart';
-import '../models/session_model.dart';
-import '../repository/chat_repository.dart';
+import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
 import 'chat_detail_state.dart';
 
 class ChatDetailCubit extends Cubit<ChatDetailState> {
@@ -15,15 +16,16 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   })  : _repository = repository ?? ChatRepository(),
         super(ChatDetailInitial());
 
-  Future<void> loadInitialChats() async {
+  Future<void> loadInitialChats({String searchQuery = ''}) async {
     emit(const ChatDetailLoading(isFirstLoad: true));
     try {
       _currentPage = 1;
-      final response = await _repository.getChats(initialSession.id, _currentPage);
+      final response = await _repository.getChats(initialSession.id, _currentPage, search: searchQuery);
       emit(ChatDetailLoaded(
         session: initialSession,
         chats: response.data,
         hasReachedMax: response.meta.currentPage == response.meta.lastPage || response.data.isEmpty,
+        searchQuery: searchQuery,
       ));
     } catch (e) {
       emit(ChatDetailError(e.toString()));
@@ -37,7 +39,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
 
       try {
         _currentPage++;
-        final response = await _repository.getChats(initialSession.id, _currentPage);
+        final response = await _repository.getChats(initialSession.id, _currentPage, search: currentState.searchQuery);
         
         final hasReachedMax = response.meta.currentPage == response.meta.lastPage || response.data.isEmpty;
         
@@ -75,6 +77,42 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
           submitError: e.toString().replaceFirst('Exception: ', ''),
         ));
       }
+    }
+  }
+
+  void receiveMessage(ChatMessageModel newMessage) {
+    if (state is ChatDetailLoaded) {
+      final currentState = state as ChatDetailLoaded;
+      
+      // Jika pesan dengan ID ini sudah ada (karena optimistically ditambah via sendMessage), jangan tambah lagi
+      if (currentState.chats.any((chat) => chat.id == newMessage.id)) {
+        return;
+      }
+      
+      // Karena kita sedang berada di halaman obrolan yang terbuka, anggap pesan otomatis terbaca
+      final updatedMessage = ChatMessageModel(
+        id: newMessage.id,
+        messageContent: newMessage.messageContent,
+        messageType: newMessage.messageType,
+        systemMessageType: newMessage.systemMessageType,
+        attachmentUrl: newMessage.attachmentUrl,
+        isRead: true, // Force read locally
+        createdAt: newMessage.createdAt,
+        senderId: newMessage.senderId,
+        senderName: newMessage.senderName,
+      );
+
+      final updatedChats = List.of(currentState.chats)..insert(0, updatedMessage);
+      emit(currentState.copyWith(chats: updatedChats));
+
+      // Beritahu backend juga bahwa pesan ini telah kita baca
+      _repository.markAsRead(initialSession.id);
+    }
+  }
+
+  void updateSession(SessionModel newSession) {
+    if (state is ChatDetailLoaded) {
+      emit((state as ChatDetailLoaded).copyWith(session: newSession));
     }
   }
 }

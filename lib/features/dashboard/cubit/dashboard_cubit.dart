@@ -1,5 +1,5 @@
 import 'package:bloc/bloc.dart';
-import '../repository/dashboard_repository.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/dashboard_repository.dart';
 import 'dashboard_state.dart';
 
 class DashboardCubit extends Cubit<DashboardState> {

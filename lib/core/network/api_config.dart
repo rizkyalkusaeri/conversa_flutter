@@ -1,4 +1,13 @@
 class ApiConfig {
+  static bool isProduction = true;
   // Gunakan IP lokal host atau 10.0.2.2 untuk emulator android
-  static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
+  static String get baseUrl => isProduction
+      ? 'https://myconversa.cloud/api/v1'
+      : 'http://localhost:8000/api/v1';
+
+  static String get imageUrl =>
+      isProduction ? 'https://myconversa.cloud' : 'http://localhost:8000';
+
+  static String get reverbHost =>
+      isProduction ? 'myconversa.cloud' : 'localhost';
 }

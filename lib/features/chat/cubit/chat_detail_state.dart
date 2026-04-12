@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
-import '../models/chat_message_model.dart';
-import '../models/session_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 
 abstract class ChatDetailState extends Equatable {
   const ChatDetailState();
@@ -25,6 +25,7 @@ class ChatDetailLoaded extends ChatDetailState {
   final bool hasReachedMax;
   final bool isSubmitting;
   final String? submitError;
+  final String searchQuery;
 
   const ChatDetailLoaded({
     required this.session,
@@ -32,6 +33,7 @@ class ChatDetailLoaded extends ChatDetailState {
     required this.hasReachedMax,
     this.isSubmitting = false,
     this.submitError,
+    this.searchQuery = '',
   });
 
   ChatDetailLoaded copyWith({
@@ -40,6 +42,7 @@ class ChatDetailLoaded extends ChatDetailState {
     bool? hasReachedMax,
     bool? isSubmitting,
     String? submitError,
+    String? searchQuery,
   }) {
     return ChatDetailLoaded(
       session: session ?? this.session,
@@ -47,11 +50,12 @@ class ChatDetailLoaded extends ChatDetailState {
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       submitError: submitError,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
   @override
-  List<Object?> get props => [session, chats, hasReachedMax, isSubmitting, submitError];
+  List<Object?> get props => [session, chats, hasReachedMax, isSubmitting, submitError, searchQuery];
 }
 
 class ChatDetailError extends ChatDetailState {

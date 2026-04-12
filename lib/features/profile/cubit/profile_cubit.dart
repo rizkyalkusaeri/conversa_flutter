@@ -1,5 +1,5 @@
 import 'package:bloc/bloc.dart';
-import '../repository/profile_repository.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/profile_repository.dart';
 import 'profile_state.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {

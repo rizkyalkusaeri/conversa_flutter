@@ -46,7 +46,9 @@ class DashboardPage extends StatelessWidget {
                         _buildSectionTitle("Recent Threads"),
                         const SizedBox(height: 16),
                         _buildThreadsList(state),
-                        const SizedBox(height: 80), // Jarak ekstra buat bottom nav
+                        const SizedBox(
+                          height: 80,
+                        ), // Jarak ekstra buat bottom nav
                       ],
                     ),
                   ),
@@ -81,20 +83,24 @@ class DashboardPage extends StatelessWidget {
             const CircleAvatar(
               radius: 24,
               backgroundImage: NetworkImage(
-                  'https://i.pravatar.cc/150?img=47'), // Placeholder image
+                'https://i.pravatar.cc/150?img=47',
+              ), // Placeholder image
             ),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(roleMessage,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  roleMessage,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
                 Text(
                   userName,
                   style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18),
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
               ],
             ),
@@ -102,8 +108,11 @@ class DashboardPage extends StatelessWidget {
         ),
         Stack(
           children: [
-            const Icon(Icons.notifications_none,
-                size: 28, color: AppColors.textDark),
+            const Icon(
+              Icons.notifications_none,
+              size: 28,
+              color: AppColors.textDark,
+            ),
             Positioned(
               right: 2,
               top: 2,
@@ -115,7 +124,7 @@ class DashboardPage extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ],
@@ -126,7 +135,8 @@ class DashboardPage extends StatelessWidget {
   Widget _buildHeroCard(DashboardState state) {
     String sessionsText = "Loading...";
     if (state is DashboardLoaded) {
-      sessionsText = "You have ${state.summary.activeSessionsCount} active sessions today.";
+      sessionsText =
+          "You have ${state.summary.activeSessionsCount} active sessions today.";
     }
 
     return Container(
@@ -141,7 +151,7 @@ class DashboardPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -153,7 +163,10 @@ class DashboardPage extends StatelessWidget {
           const Text(
             "Ready for your sessions?",
             style: TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -176,7 +189,7 @@ class DashboardPage extends StatelessWidget {
               "View Calendar",
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -230,7 +243,12 @@ class DashboardPage extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  Widget _buildStatCard(IconData icon, String title, String value, Color color) {
+  Widget _buildStatCard(
+    IconData icon,
+    String title,
+    String value,
+    Color color,
+  ) {
     return Container(
       width: 130, // Fixed width agar rapi jika horizontal
       padding: const EdgeInsets.all(20),
@@ -240,10 +258,10 @@ class DashboardPage extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             blurRadius: 10,
             spreadRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -252,7 +270,7 @@ class DashboardPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
@@ -261,17 +279,19 @@ class DashboardPage extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-                fontWeight: FontWeight.w500),
+              color: Colors.grey.shade500,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-                color: AppColors.textDark,
-                fontSize: 28,
-                fontWeight: FontWeight.bold),
+              color: AppColors.textDark,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -305,9 +325,10 @@ class DashboardPage extends StatelessWidget {
               const Text(
                 "Create New Session",
                 style: TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold),
+                  color: AppColors.textDark,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -372,7 +393,9 @@ class DashboardPage extends StatelessWidget {
             height: 8,
             margin: const EdgeInsets.only(top: 8),
             decoration: const BoxDecoration(
-                color: AppColors.secondary, shape: BoxShape.circle),
+              color: AppColors.secondary,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -382,9 +405,10 @@ class DashboardPage extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Row(
@@ -393,12 +417,16 @@ class DashboardPage extends StatelessWidget {
                     Text(
                       author,
                       style: TextStyle(
-                          color: Colors.grey.shade500, fontSize: 13),
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                      ),
                     ),
                     Text(
                       date, // Kalau bs diparsing lebih bagus, misal format 'd MMM yyyy'
                       style: TextStyle(
-                          color: Colors.grey.shade400, fontSize: 12),
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),

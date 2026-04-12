@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/cubit/app_auth/app_auth_cubit.dart';
 import 'features/auth/cubit/app_auth/app_auth_state.dart';
-import 'features/auth/repository/auth_repository.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
 import 'features/auth/ui/login_page.dart';
 import 'features/main/ui/main_page.dart';
 

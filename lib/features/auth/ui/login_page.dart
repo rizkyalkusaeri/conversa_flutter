@@ -1,4 +1,7 @@
 // lib/features/auth/ui/login_page.dart
+import 'package:fifgroup_android_ticketing/core/widgets/form_label.dart';
+import 'package:fifgroup_android_ticketing/core/widgets/form_text_field.dart';
+import 'package:fifgroup_android_ticketing/core/widgets/app_version_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -72,11 +75,11 @@ class LoginPage extends StatelessWidget {
                   const SizedBox(height: 40),
 
                   // INPUT USERNAME
-                  _buildLabel("USERNAME"),
-                  _buildTextField(
-                    usernameController,
-                    Icons.person,
-                    "Masukkan username...",
+                  FormLabel(text: "USERNAME"),
+                  FormTextField(
+                    controller: usernameController,
+                    prefixIcon: Icons.person,
+                    hintText: "Masukkan username...",
                   ),
 
                   const SizedBox(height: 20),
@@ -85,7 +88,7 @@ class LoginPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildLabel("PASSWORD"),
+                      FormLabel(text: "PASSWORD"),
                       // TextButton(
                       //   onPressed: () {},
                       //   child: const Text(
@@ -99,11 +102,11 @@ class LoginPage extends StatelessWidget {
                       // ),
                     ],
                   ),
-                  _buildTextField(
-                    passwordController,
-                    Icons.lock,
-                    "Masukkan password...",
-                    isPassword: state.isPasswordVisible,
+                  FormTextField(
+                    controller: passwordController,
+                    prefixIcon: Icons.lock,
+                    hintText: "Masukkan password...",
+                    obscureText: state.isPasswordVisible,
                     onSuffixIconPressed: () {
                       context.read<LoginCubit>().togglePasswordVisibility();
                     },
@@ -130,25 +133,20 @@ class LoginPage extends StatelessWidget {
                       ),
                       child: state.isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "Login",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(width: 10),
-                                Icon(Icons.arrow_forward, color: Colors.white),
-                              ],
+                          : const Text(
+                              "Login",
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),
 
                   const SizedBox(height: 40),
+                  const AppVersionText(),
+                  const SizedBox(height: 20),
                 ],
               ),
             );
@@ -159,53 +157,6 @@ class LoginPage extends StatelessWidget {
   }
 
   // Widget Helper untuk Label
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-      ),
-    );
-  }
 
   // Widget Helper untuk TextField
-  Widget _buildTextField(
-    TextEditingController controller,
-    IconData icon,
-    String hint, {
-    bool isPassword = false,
-    VoidCallback? onSuffixIconPressed,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FB),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword,
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixIcon: Icon(icon, color: Colors.grey),
-          suffixIcon: onSuffixIconPressed != null
-              ? IconButton(
-                  icon: Icon(
-                    isPassword ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
-                  ),
-                  onPressed: onSuffixIconPressed,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15),
-        ),
-      ),
-    );
-  }
 }

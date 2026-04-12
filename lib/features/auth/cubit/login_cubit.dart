@@ -1,5 +1,5 @@
 import 'package:bloc/bloc.dart';
-import '../repository/auth_repository.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
 import 'app_auth/app_auth_cubit.dart';
 
 part 'login_state.dart';

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 
 class SearchableDropdownField extends StatefulWidget {
   final MasterDataModel? selectedItem;
@@ -20,7 +20,8 @@ class SearchableDropdownField extends StatefulWidget {
   });
 
   @override
-  State<SearchableDropdownField> createState() => _SearchableDropdownFieldState();
+  State<SearchableDropdownField> createState() =>
+      _SearchableDropdownFieldState();
 }
 
 class _SearchableDropdownFieldState extends State<SearchableDropdownField> {
@@ -57,13 +58,20 @@ class _SearchableDropdownFieldState extends State<SearchableDropdownField> {
               child: Text(
                 widget.selectedItem?.text ?? widget.hintText,
                 style: TextStyle(
-                  color: widget.selectedItem == null ? const Color(0xFF9CA3AF) : AppColors.textDark,
+                  color: widget.selectedItem == null
+                      ? const Color(0xFF9CA3AF)
+                      : AppColors.textDark,
                   fontSize: 15,
-                  fontWeight: widget.selectedItem == null ? FontWeight.normal : FontWeight.w500,
+                  fontWeight: widget.selectedItem == null
+                      ? FontWeight.normal
+                      : FontWeight.w500,
                 ),
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF4B5563)),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF4B5563),
+            ),
           ],
         ),
       ),
@@ -135,11 +143,19 @@ class _SearchSheetContentState extends State<_SearchSheetContent> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      padding: const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 0),
+      height: MediaQuery.of(context).size.height * 0.75,
+      padding: EdgeInsets.only(
+        top: 24, 
+        left: 16, 
+        right: 16, 
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
       ),
       child: Column(
         children: [
@@ -168,15 +184,16 @@ class _SearchSheetContentState extends State<_SearchSheetContent> {
                 hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
                 prefixIcon: Icon(Icons.search, color: Color(0xFF9CA3AF)),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 16),
           // List View Builder
-          Expanded(
-            child: _buildBody(),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
@@ -187,20 +204,34 @@ class _SearchSheetContentState extends State<_SearchSheetContent> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_lastError.isNotEmpty) {
-      return Center(child: Text(_lastError, style: const TextStyle(color: Colors.red)));
+      return Center(
+        child: Text(_lastError, style: const TextStyle(color: Colors.red)),
+      );
     }
     if (_results.isEmpty) {
-      return const Center(child: Text("Data tidak ditemukan.", style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text(
+          "Data tidak ditemukan.",
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     }
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       itemCount: _results.length,
-      separatorBuilder: (_, __) => Divider(color: Colors.grey.shade100, height: 1),
+      separatorBuilder: (_, _) =>
+          Divider(color: Colors.grey.shade100, height: 1),
       itemBuilder: (context, index) {
         final item = _results[index];
         return ListTile(
-          title: Text(item.text, style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textDark)),
+          title: Text(
+            item.text,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: AppColors.textDark,
+            ),
+          ),
           onTap: () {
             Navigator.pop(context, item);
           },

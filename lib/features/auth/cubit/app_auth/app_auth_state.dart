@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../models/user_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 
 abstract class AppAuthState extends Equatable {
   const AppAuthState();

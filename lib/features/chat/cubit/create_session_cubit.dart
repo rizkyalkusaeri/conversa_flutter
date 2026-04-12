@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
-import '../repository/session_repository.dart';
-import '../models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 import 'create_session_state.dart';
 
 class CreateSessionCubit extends Cubit<CreateSessionState> {

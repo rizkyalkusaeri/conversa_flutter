@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../models/dashboard_summary_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/dashboard_summary_model.dart';
 
 abstract class DashboardState extends Equatable {
   const DashboardState();

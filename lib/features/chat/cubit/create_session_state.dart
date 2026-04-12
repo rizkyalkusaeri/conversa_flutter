@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
-import '../models/master_data_model.dart';
-import '../models/session_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 
 abstract class CreateSessionState extends Equatable {
   const CreateSessionState();
