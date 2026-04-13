@@ -16,22 +16,21 @@ class NotificationService {
 
     const DarwinInitializationSettings iosInitializationSettings =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     const InitializationSettings initializationSettings =
         InitializationSettings(
-      android: androidInitializationSettings,
-      iOS: iosInitializationSettings,
-    );
+          android: androidInitializationSettings,
+          iOS: iosInitializationSettings,
+        );
 
     await _notificationsPlugin.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        debugPrint(
-            "Notification tapped with payload: ${response.payload}");
+        debugPrint("Notification tapped with payload: ${response.payload}");
         // Redirect or handle notification tap here if needed in the future
       },
     );
@@ -44,14 +43,15 @@ class NotificationService {
   }) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'fifgroup_chat_channel',
-      'FIFGROUP Messages',
-      channelDescription: 'Notifications for incoming messages and session updates.',
-      importance: Importance.max,
-      priority: Priority.high,
-      ticker: 'ticker',
-      icon: '@mipmap/ic_launcher',
-    );
+          'fifgroup_chat_channel',
+          'FIFGROUP Messages',
+          channelDescription:
+              'Notifications for incoming messages and session updates.',
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: 'ticker',
+          icon: '@mipmap/ic_launcher',
+        );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
