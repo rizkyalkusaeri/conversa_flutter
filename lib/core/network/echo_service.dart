@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:laravel_echo/laravel_echo.dart';
 import 'package:pusher_client_fixed/pusher_client_fixed.dart';
 import 'package:flutter/foundation.dart';
@@ -6,15 +7,32 @@ import '../storage/storage_manager.dart';
 
 class EchoService {
   static Echo? _echo;
+  static PusherClient? _pusher;
+  static bool _isConnected = false;
+  static int? _lastUserId;
+
+  static bool get isConnected => _isConnected;
 
   static Future<void> init({int? currentUserId}) async {
-    if (_echo != null) return;
+    // Jika sudah ada koneksi aktif dengan user yang sama, skip
+    if (_echo != null && _isConnected && _lastUserId == currentUserId) {
+      debugPrint("Echo: Already connected for user $currentUserId");
+      return;
+    }
+
+    // Jika ada koneksi lama, putuskan dahulu
+    if (_echo != null) {
+      debugPrint("Echo: Disconnecting old connection before reinit");
+      await disconnect();
+    }
 
     final token = await StorageManager.getToken();
     if (token == null) {
-      debugPrint("Cannot init Echo: No Auth Token");
+      debugPrint("Echo ERROR: Cannot init — No Auth Token found!");
       return;
     }
+
+    _lastUserId = currentUserId;
 
     try {
       final pusherOptions = PusherOptions(
@@ -22,67 +40,117 @@ class EchoService {
         wsPort: 443,
         wssPort: 443,
         encrypted: true,
-        cluster: 'mt1',
         auth: PusherAuth(
           '${ApiConfig.baseUrl.replaceAll('/v1', '')}/broadcasting/auth',
           headers: {
             'Authorization': 'Bearer $token',
             'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
         ),
       );
 
-      final pusher = PusherClient(
-        'syhdndftedn1zdw285ub', // Dari REVERB_APP_KEY .env
+      _pusher = PusherClient(
+        ApiConfig.reverbKey,
         pusherOptions,
         autoConnect: false,
         enableLogging: true,
       );
 
-      // Membersihkan cache native plugin (bawaan dari hot restart sebelumnya)
-      // agar tidak terjadi "Already subscribed" saat melakukan subscribe ulang
-      if (currentUserId != null) {
-        try {
-          pusher.unsubscribe('private-user.$currentUserId');
-        } catch (_) {}
-      }
+      _pusher!.onConnectionStateChange((state) {
+        debugPrint("Echo Connection State: ${state?.currentState} → ${state?.previousState}");
+        _isConnected = state?.currentState == 'CONNECTED';
+      });
 
-      _echo = Echo(broadcaster: EchoBroadcasterType.Pusher, client: pusher);
+      _pusher!.onConnectionError((error) {
+        debugPrint("Echo Connection ERROR: ${error?.message}");
+        _isConnected = false;
+      });
 
-      pusher.connect();
+      _echo = Echo(broadcaster: EchoBroadcasterType.Pusher, client: _pusher!);
 
-      debugPrint("Echo Service initialized successfully.");
+      _pusher!.connect();
+
+      debugPrint("Echo Service initialized. Host: ${ApiConfig.reverbHost}:443 (wss)");
     } catch (e) {
       debugPrint("Echo init error: $e");
+      _echo = null;
+      _pusher = null;
+      _isConnected = false;
     }
   }
 
   static void listen(String channel, String event, Function(dynamic) callback) {
-    if (_echo == null) return;
+    if (_echo == null) {
+      debugPrint("Echo WARN: Cannot listen — not initialized. Channel: $channel Event: $event");
+      return;
+    }
 
-    // Echo in dart usually requires prefixing the event with '.' if broadcastAs is used,
-    // and if we use private channel, we subscribe via private()
+    debugPrint("Echo: Subscribing → private-$channel / $event");
     _echo!.private(channel).listen(event, (e) {
-      debugPrint("Echo Event Received on $channel / $event: $e");
-      callback(e);
+      debugPrint("Echo ✅ Event Received on $channel / $event");
+      // pusher_client_fixed mengirim PusherEvent, bukan Map
+      // Kita perlu extract .data (JSON string) dan decode
+      try {
+        Map<String, dynamic>? data;
+        if (e is PusherEvent) {
+          final rawData = e.data;
+          if (rawData != null && rawData.isNotEmpty) {
+            data = jsonDecode(rawData) as Map<String, dynamic>;
+          }
+        } else if (e is Map<String, dynamic>) {
+          data = e;
+        } else if (e is String) {
+          data = jsonDecode(e) as Map<String, dynamic>;
+        }
+        callback(data);
+      } catch (err) {
+        debugPrint("Echo: Failed to decode event data on $channel / $event: $err");
+        callback(null);
+      }
     });
   }
 
   static void listenNotification(String channel, Function(dynamic) callback) {
-    if (_echo == null) return;
+    if (_echo == null) {
+      debugPrint("Echo WARN: Cannot listenNotification — not initialized. Channel: $channel");
+      return;
+    }
 
+    debugPrint("Echo: Subscribing notifications → private-$channel");
     _echo!.private(channel).notification((e) {
-      debugPrint("Echo Notification Received on $channel: $e");
-      callback(e);
+      debugPrint("Echo ✅ Notification Received on $channel");
+      try {
+        Map<String, dynamic>? data;
+        if (e is PusherEvent) {
+          final rawData = e.data;
+          if (rawData != null && rawData.isNotEmpty) {
+            data = jsonDecode(rawData) as Map<String, dynamic>;
+          }
+        } else if (e is Map<String, dynamic>) {
+          data = e;
+        } else if (e is String) {
+          data = jsonDecode(e) as Map<String, dynamic>;
+        }
+        callback(data);
+      } catch (err) {
+        debugPrint("Echo: Failed to decode notification data on $channel: $err");
+        callback(null);
+      }
     });
   }
 
   static void leave(String channel) {
+    debugPrint("Echo: Leaving channel private-$channel");
     _echo?.leave(channel);
   }
 
-  static void disconnect() {
+  static Future<void> disconnect() async {
+    debugPrint("Echo: Disconnecting...");
     _echo?.disconnect();
     _echo = null;
+    _pusher = null;
+    _isConnected = false;
+    _lastUserId = null;
   }
 }

@@ -14,6 +14,7 @@ import '../cubit/chat_detail_cubit.dart';
 import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import '../../../core/network/echo_service.dart';
+import '../../../core/services/realtime_event_bus.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -27,15 +28,23 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   String _selectedStatus = 'active';
+  StreamSubscription<void>? _sessionRefreshSub;
 
   @override
   void initState() {
     super.initState();
     _cubit = SessionListCubit(statusFilter: 'active')..loadInitial();
+
+    // Subscribe ke RealtimeEventBus untuk refresh saat ada SessionCreated/SessionUpdated
+    _sessionRefreshSub = RealtimeEventBus.instance.onSessionRefresh.listen((_) {
+      final query = _searchController.text;
+      _cubit.loadInitial(searchQuery: query);
+    });
   }
 
   @override
   void dispose() {
+    _sessionRefreshSub?.cancel();
     _cubit.close();
     _searchController.dispose();
     _debounce?.cancel();
@@ -280,10 +289,38 @@ class _SessionListViewState extends State<SessionListView> {
         }
         if (state is SessionListLoaded) {
           if (state.sessions.isEmpty) {
-            return Center(
-              child: Text(
-                "Tidak ada interaksi saat ini.",
-                style: TextStyle(color: Colors.grey.shade500),
+            return RefreshIndicator(
+              onRefresh: () async {
+                await context.read<SessionListCubit>().loadInitial(
+                  searchQuery: state.searchQuery,
+                  newStatusFilter: context.read<SessionListCubit>().statusFilter,
+                );
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.4,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text(
+                            "Tidak ada sesi saat ini.",
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Tarik ke bawah untuk memperbarui.",
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           }

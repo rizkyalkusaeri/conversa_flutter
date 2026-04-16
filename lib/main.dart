@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -8,9 +10,26 @@ import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dar
 import 'features/auth/ui/login_page.dart';
 import 'features/main/ui/main_page.dart';
 
-void main() {
+// WAJIB: Background FCM handler harus top-level function
+// Didaftarkan sebelum runApp() agar aktif saat app terminated
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('FCM [BG]: ${message.notification?.title}');
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi Firebase
+  await Firebase.initializeApp();
+
+  // Daftarkan background handler sebelum runApp
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   runApp(const MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

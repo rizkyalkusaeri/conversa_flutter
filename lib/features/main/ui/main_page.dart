@@ -6,10 +6,11 @@ import '../../../core/constants/app_colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../auth/cubit/app_auth/app_auth_cubit.dart';
 import '../../auth/cubit/app_auth/app_auth_state.dart';
-import '../../chat/cubit/session_list_cubit.dart';
 import '../../search/ui/search_page.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/services/fcm_service.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -18,7 +19,7 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   // Daftar halaman fragment navigasi sesuai UI Reference:
@@ -35,7 +36,18 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initRealTime();
+  }
+
+  // Handle app lifecycle: reconnect saat app resume dari background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("App resumed — reinitializing EchoService...");
+      _initRealTime();
+    }
   }
 
   Future<void> _initRealTime() async {
@@ -45,13 +57,76 @@ class _MainPageState extends State<MainPage> {
 
       await NotificationService.init();
       await EchoService.init(currentUserId: _currentUserId);
-      
+
+      // Inisialisasi FCM untuk push notification saat app terminated
+      await FcmService.init();
+
+      // Session events: refresh list + notifikasi
+      EchoService.listen('user.$_currentUserId', '.SessionCreated', _onSessionListChanged);
+      EchoService.listen('user.$_currentUserId', '.SessionUpdated', _onSessionListChanged);
+
+      // Notifikasi pesan baru dari SEMUA sesi (ChatDetailPage akan filter jika sedang dibuka)
+      EchoService.listen('user.$_currentUserId', '.MessageSent', _onNewMessageReceived);
+
       // Global Notification Listener (Filament / BroadcastNotificationCreated)
-      EchoService.listenNotification(
-        'App.Models.User.$_currentUserId',
-        _onNotificationEvent,
-      );
+      EchoService.listenNotification('App.Models.User.$_currentUserId', _onNotificationEvent);
     }
+  }
+
+  void _onSessionListChanged(dynamic data) {
+    debugPrint("Echo [MainPage]: Session event received: $data");
+
+    // Trigger ChatPage untuk refresh session list
+    RealtimeEventBus.instance.notifySessionRefresh();
+
+    // Tampilkan notifikasi lokal
+    if (data != null) {
+      final ticketNumber = data['ticket_number'] as String?;
+      final status = data['status'] as String?;
+
+      if (ticketNumber != null) {
+        // SessionCreated
+        NotificationService.showNotification(
+          title: 'Sesi Baru Dibuat',
+          body: 'Tiket $ticketNumber telah dibuat.',
+        );
+      } else if (status != null) {
+        // SessionUpdated
+        NotificationService.showNotification(
+          title: 'Status Sesi Diperbarui',
+          body: 'Status sesi berubah menjadi $status.',
+        );
+      }
+    }
+  }
+
+  void _onNewMessageReceived(dynamic data) {
+    if (data == null) return;
+
+    final sessionUuid = data['session_uuid'] as String?;
+    final senderName = data['sender_name'] as String? ?? 'Pesan Baru';
+    final messageContent = data['message_content'] as String?;
+    final messageType = data['message_type'] as String? ?? 'TEXT';
+
+    // JANGAN tampilkan notifikasi jika user sedang membuka sesi tersebut
+    if (sessionUuid != null &&
+        sessionUuid == RealtimeEventBus.instance.activeSessionUuid) {
+      debugPrint("Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi");
+      return;
+    }
+
+    // Tampilkan notifikasi untuk pesan dari sesi lain
+    final body = messageType == 'TEXT'
+        ? (messageContent ?? 'Pesan baru')
+        : '📎 Mengirim lampiran';
+
+    NotificationService.showNotification(
+      title: '💬 $senderName',
+      body: body,
+    );
+
+    // Refresh session list untuk update badge unread
+    RealtimeEventBus.instance.notifySessionRefresh();
   }
 
   void _onNotificationEvent(dynamic data) {
@@ -69,6 +144,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_currentUserId != null) {
       EchoService.leave('user.$_currentUserId');
     }

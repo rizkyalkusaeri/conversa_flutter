@@ -152,6 +152,16 @@ class SessionService {
     }
   }
 
+  Future<SessionModel> getSessionByUuid(String uuid) async {
+    try {
+      final response = await _dio.get('/sessions/$uuid');
+      final data = response.data['data'];
+      return SessionModel.fromJson(data as Map<String, dynamic>);
+    } catch (e) {
+      throw Exception('Gagal memuat detail sesi: $e');
+    }
+  }
+
   Future<List<MasterDataModel>> getMasterData(String endpoint, String keyName, {Map<String, dynamic>? queryParams}) async {
     try {
       final response = await _dio.get(endpoint, queryParameters: queryParams);

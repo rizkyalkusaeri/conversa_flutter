@@ -1,19 +1,24 @@
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
+import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
 import 'chat_detail_state.dart';
 
 class ChatDetailCubit extends Cubit<ChatDetailState> {
   final ChatRepository _repository;
+  final SessionService _sessionService;
   final SessionModel initialSession;
   int _currentPage = 1;
 
   ChatDetailCubit({
     required this.initialSession,
     ChatRepository? repository,
+    SessionService? sessionService,
   })  : _repository = repository ?? ChatRepository(),
+        _sessionService = sessionService ?? SessionService(),
         super(ChatDetailInitial());
 
   Future<void> loadInitialChats({String searchQuery = ''}) async {
@@ -113,6 +118,20 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   void updateSession(SessionModel newSession) {
     if (state is ChatDetailLoaded) {
       emit((state as ChatDetailLoaded).copyWith(session: newSession));
+    }
+  }
+
+  // Reload session dari API untuk mendapatkan status terbaru secara realtime
+  Future<void> reloadSession() async {
+    if (state is ChatDetailLoaded) {
+      final currentState = state as ChatDetailLoaded;
+      try {
+        final updatedSession = await _sessionService.getSessionByUuid(initialSession.id);
+        emit(currentState.copyWith(session: updatedSession));
+      } catch (e) {
+        // Jika gagal reload session, tidak perlu crash — biarkan UI tetap tampil
+        debugPrint('reloadSession error: $e');
+      }
     }
   }
 }

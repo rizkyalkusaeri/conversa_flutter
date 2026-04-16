@@ -20,6 +20,7 @@ import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import 'widgets/complete_session_dialog.dart';
 import '../../../core/network/echo_service.dart';
+import '../../../core/services/realtime_event_bus.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final SessionModel session;
@@ -30,7 +31,7 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> {
+class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObserver {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -42,20 +43,40 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final authState = context.read<AppAuthCubit>().state;
     if (authState is AppAuthAuthenticated) {
       _currentUserId = authState.user.id;
     }
+    _setupListeners();
+  }
 
+  // Reconnect WebSocket saat app kembali dari background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("ChatDetailPage resumed — resubscribing Echo listeners...");
+      // Reload chat untuk mendapat pesan yang mungkin terlewat
+      context.read<ChatDetailCubit>().loadInitialChats();
+      context.read<ChatDetailCubit>().reloadSession();
+    }
+  }
+
+  void _setupListeners() {
+    // Tandai sesi ini sebagai aktif → MainPage tidak akan kirim notifikasi untuk sesi ini
+    RealtimeEventBus.instance.setActiveSession(widget.session.id);
+
+    // Scroll listener: load more saat mendekati ujung atas (list is reversed)
     _scrollController.addListener(() {
       if (!mounted) return;
-      // Load more when reaching near the top of the list (which is the max scroll extent because it's reversed)
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent * 0.9) {
         context.read<ChatDetailCubit>().loadMoreChats();
       }
     });
 
+    // Listen MessageSent → update UI saja (TIDAK ada notifikasi, user sudah lihat)
     EchoService.listen('chat.${widget.session.id}', '.MessageSent', (data) {
       if (data != null && mounted) {
         try {
@@ -66,10 +87,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         }
       }
     });
+
+    // Listen SessionUpdated → reload status sesi secara realtime
+    if (_currentUserId != null) {
+      EchoService.listen('user.$_currentUserId', '.SessionUpdated', (data) {
+        if (data != null && mounted) {
+          final eventSessionUuid = data['session_uuid'];
+          if (eventSessionUuid != null && eventSessionUuid.toString() == widget.session.id) {
+            debugPrint("Echo: SessionUpdated for current session (${widget.session.id}), reloading...");
+            context.read<ChatDetailCubit>().loadInitialChats();
+            context.read<ChatDetailCubit>().reloadSession();
+          }
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    // Hapus tracking sesi aktif saat keluar dari halaman
+    RealtimeEventBus.instance.clearActiveSession();
+    WidgetsBinding.instance.removeObserver(this);
     EchoService.leave('chat.${widget.session.id}');
     _msgController.dispose();
     _scrollController.dispose();
