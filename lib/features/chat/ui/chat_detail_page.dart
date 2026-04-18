@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,14 +32,17 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObserver {
+class _ChatDetailPageState extends State<ChatDetailPage>
+    with WidgetsBindingObserver {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   int? _currentUserId;
-
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+
+  // Subscription untuk session updated dari MainPage via EventBus
+  StreamSubscription<Map<String, dynamic>>? _sessionUpdatedSub;
 
   @override
   void initState() {
@@ -51,20 +55,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     _setupListeners();
   }
 
-  // Reconnect WebSocket saat app kembali dari background
+  // Reload pesan yang mungkin terlewat saat app kembali dari background
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      debugPrint("ChatDetailPage resumed — resubscribing Echo listeners...");
-      // Reload chat untuk mendapat pesan yang mungkin terlewat
+      debugPrint('ChatDetailPage resumed — reloading chats & session...');
       context.read<ChatDetailCubit>().loadInitialChats();
       context.read<ChatDetailCubit>().reloadSession();
     }
   }
 
   void _setupListeners() {
-    // Tandai sesi ini sebagai aktif → MainPage tidak akan kirim notifikasi untuk sesi ini
+    // Tandai sesi ini sebagai aktif di EventBus
+    // → MainPage TIDAK akan tampilkan notifikasi untuk sesi ini
     RealtimeEventBus.instance.setActiveSession(widget.session.id);
 
     // Scroll listener: load more saat mendekati ujung atas (list is reversed)
@@ -76,31 +80,34 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       }
     });
 
-    // Listen MessageSent → update UI saja (TIDAK ada notifikasi, user sudah lihat)
+    // Listen MessageSent dari channel SPESIFIK sesi ini via Echo
+    // AMAN: channel 'chat.$sessionId' bukan channel user global
     EchoService.listen('chat.${widget.session.id}', '.MessageSent', (data) {
       if (data != null && mounted) {
         try {
           final newChat = ChatMessageModel.fromJson(data);
           context.read<ChatDetailCubit>().receiveMessage(newChat);
         } catch (e) {
-          debugPrint("Failed to parse incoming chat: $e");
+          debugPrint('Failed to parse incoming chat: $e');
         }
       }
     });
 
-    // Listen SessionUpdated → reload status sesi secara realtime
-    if (_currentUserId != null) {
-      EchoService.listen('user.$_currentUserId', '.SessionUpdated', (data) {
-        if (data != null && mounted) {
-          final eventSessionUuid = data['session_uuid'];
-          if (eventSessionUuid != null && eventSessionUuid.toString() == widget.session.id) {
-            debugPrint("Echo: SessionUpdated for current session (${widget.session.id}), reloading...");
-            context.read<ChatDetailCubit>().loadInitialChats();
-            context.read<ChatDetailCubit>().reloadSession();
-          }
-        }
-      });
-    }
+    // Listen SessionUpdated via RealtimeEventBus (di-forward oleh MainPage)
+    // TIDAK subscribe langsung ke Echo channel user.$userId
+    // untuk menghindari duplikat listener
+    _sessionUpdatedSub =
+        RealtimeEventBus.instance.onSessionUpdated.listen((data) {
+      if (!mounted) return;
+      final eventSessionUuid = data['session_uuid']?.toString();
+      if (eventSessionUuid != null &&
+          eventSessionUuid == widget.session.id) {
+        debugPrint(
+            'EventBus: SessionUpdated untuk sesi aktif (${widget.session.id}), reloading...');
+        context.read<ChatDetailCubit>().reloadSession();
+        context.read<ChatDetailCubit>().loadInitialChats();
+      }
+    });
   }
 
   @override
@@ -108,7 +115,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     // Hapus tracking sesi aktif saat keluar dari halaman
     RealtimeEventBus.instance.clearActiveSession();
     WidgetsBinding.instance.removeObserver(this);
+    // Leave hanya channel spesifik sesi ini — bukan channel user global!
     EchoService.leave('chat.${widget.session.id}');
+    _sessionUpdatedSub?.cancel();
     _msgController.dispose();
     _scrollController.dispose();
     _searchController.dispose();

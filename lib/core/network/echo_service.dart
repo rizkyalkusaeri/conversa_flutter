@@ -153,4 +153,11 @@ class EchoService {
     _isConnected = false;
     _lastUserId = null;
   }
+
+  static void reconnect() {
+    if (_pusher != null && !_isConnected) {
+      debugPrint("Echo: Attempting to reconnect Pusher natively...");
+      _pusher!.connect();
+    }
+  }
 }

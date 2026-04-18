@@ -22,8 +22,6 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
-  // Daftar halaman fragment navigasi sesuai UI Reference:
-  // 0: Home, 1: Search, 2: Sessions (Chat), 3: Profile
   final List<Widget> _pages = [
     const ChatPage(),
     const SearchPage(),
@@ -33,6 +31,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   int? _currentUserId;
 
+  // Guard untuk memastikan Echo listeners hanya didaftarkan SATU KALI.
+  // Setiap kali reconnect (setelah resume), kita hanya perlu reconnect
+  // koneksi WebSocket — bukan re-register listener.
+  bool _listenersRegistered = false;
+
+  // Guard agar NotificationService & FcmService tidak di-init berulang
+  bool _servicesInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,61 +46,105 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _initRealTime();
   }
 
-  // Handle app lifecycle: reconnect saat app resume dari background
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      debugPrint("App resumed — reinitializing EchoService...");
-      _initRealTime();
+      debugPrint('App resumed — checking Echo connection...');
+      // Kalau koneksi Echo putus, panggil reconnect (tanpa re-init/destroy koneksi lama)
+      // Pusher client plugin juga memiliki auto-reconnect native.
+      // Kita tidak boleh memanggil EchoService.init() di sini karena akan bertabrakan dengan native reconnect.
+      if (!EchoService.isConnected && _currentUserId != null) {
+        debugPrint('App resumed — Echo disconnected, requesting soft reconnect...');
+        EchoService.reconnect();
+      }
     }
   }
 
   Future<void> _initRealTime() async {
     final authState = context.read<AppAuthCubit>().state;
-    if (authState is AppAuthAuthenticated) {
-      _currentUserId = authState.user.id;
+    if (authState is! AppAuthAuthenticated) return;
 
+    _currentUserId = authState.user.id;
+
+    // 1. Init NotificationService (buat Android channel) — sekali saja
+    if (!_servicesInitialized) {
       await NotificationService.init();
-      await EchoService.init(currentUserId: _currentUserId);
-
-      // Inisialisasi FCM untuk push notification saat app terminated
-      await FcmService.init();
-
-      // Session events: refresh list + notifikasi
-      EchoService.listen('user.$_currentUserId', '.SessionCreated', _onSessionListChanged);
-      EchoService.listen('user.$_currentUserId', '.SessionUpdated', _onSessionListChanged);
-
-      // Notifikasi pesan baru dari SEMUA sesi (ChatDetailPage akan filter jika sedang dibuka)
-      EchoService.listen('user.$_currentUserId', '.MessageSent', _onNewMessageReceived);
-
-      // Global Notification Listener (Filament / BroadcastNotificationCreated)
-      EchoService.listenNotification('App.Models.User.$_currentUserId', _onNotificationEvent);
     }
+
+    // 2. Init Echo (WebSocket ke Reverb)
+    await EchoService.init(currentUserId: _currentUserId);
+
+    // 3. Init FCM (minta permission, upload token ke server) — sekali saja
+    //    Dijalankan setelah auth token tersedia
+    if (!_servicesInitialized) {
+      await FcmService.init();
+      _servicesInitialized = true;
+    }
+
+    // 4. Daftarkan Echo listeners — hanya sekali
+    _registerEchoListeners();
   }
 
-  void _onSessionListChanged(dynamic data) {
-    debugPrint("Echo [MainPage]: Session event received: $data");
+  void _registerEchoListeners() {
+    if (_listenersRegistered || _currentUserId == null) return;
+    _listenersRegistered = true;
 
-    // Trigger ChatPage untuk refresh session list
+    debugPrint('Echo [MainPage]: Registering listeners for user $_currentUserId');
+
+    // Session events: refresh list + notifikasi + forward ke EventBus
+    EchoService.listen(
+        'user.$_currentUserId', '.SessionCreated', _onSessionCreated);
+    EchoService.listen(
+        'user.$_currentUserId', '.SessionUpdated', _onSessionUpdated);
+
+    // Notifikasi pesan baru dari SEMUA sesi
+    EchoService.listen(
+        'user.$_currentUserId', '.MessageSent', _onNewMessageReceived);
+
+    // Global Notification Listener (Filament / BroadcastNotificationCreated)
+    EchoService.listenNotification(
+        'App.Models.User.$_currentUserId', _onNotificationEvent);
+  }
+
+  void _onSessionCreated(dynamic data) {
+    debugPrint('Echo [MainPage]: SessionCreated received: $data');
+
+    // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
 
     // Tampilkan notifikasi lokal
     if (data != null) {
       final ticketNumber = data['ticket_number'] as String?;
-      final status = data['status'] as String?;
+      NotificationService.showNotification(
+        title: 'Sesi Baru Dibuat',
+        body: ticketNumber != null
+            ? 'Tiket #$ticketNumber telah dibuat.'
+            : 'Sesi baru tersedia.',
+      );
+    }
+  }
 
-      if (ticketNumber != null) {
-        // SessionCreated
-        NotificationService.showNotification(
-          title: 'Sesi Baru Dibuat',
-          body: 'Tiket $ticketNumber telah dibuat.',
-        );
-      } else if (status != null) {
-        // SessionUpdated
+  void _onSessionUpdated(dynamic data) {
+    debugPrint('Echo [MainPage]: SessionUpdated received: $data');
+
+    // Refresh session list
+    RealtimeEventBus.instance.notifySessionRefresh();
+
+    // Forward ke ChatDetailPage jika sedang terbuka (via EventBus)
+    if (data != null && data is Map<String, dynamic>) {
+      RealtimeEventBus.instance.notifySessionUpdated(data);
+
+      // Tampilkan notifikasi lokal HANYA jika bukan sesi yang sedang dibuka
+      final sessionUuid = data['session_uuid'] as String?;
+      if (sessionUuid == null ||
+          sessionUuid != RealtimeEventBus.instance.activeSessionUuid) {
+        final status = data['status'] as String?;
         NotificationService.showNotification(
           title: 'Status Sesi Diperbarui',
-          body: 'Status sesi berubah menjadi $status.',
+          body: status != null
+              ? 'Status sesi berubah menjadi $status.'
+              : 'Sesi telah diperbarui.',
         );
       }
     }
@@ -111,7 +161,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // JANGAN tampilkan notifikasi jika user sedang membuka sesi tersebut
     if (sessionUuid != null &&
         sessionUuid == RealtimeEventBus.instance.activeSessionUuid) {
-      debugPrint("Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi");
+      debugPrint(
+          'Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi');
       return;
     }
 
@@ -131,11 +182,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   void _onNotificationEvent(dynamic data) {
     if (data == null) return;
-    
-    // Filament injects notification properties directly or inside a data map depending on structure.
-    final title = data['title'] ?? data['data']?['title'] ?? 'Pemberitahuan Baru';
-    final body = data['body'] ?? data['data']?['body'] ?? 'Cek aplikasi untuk info lebih lanjut.';
-    
+
+    final title =
+        data['title'] ?? data['data']?['title'] ?? 'Pemberitahuan Baru';
+    final body = data['body'] ??
+        data['data']?['body'] ??
+        'Cek aplikasi untuk info lebih lanjut.';
+
     NotificationService.showNotification(
       title: title.toString(),
       body: body.toString(),
@@ -145,9 +198,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (_currentUserId != null) {
-      EchoService.leave('user.$_currentUserId');
-    }
+    // Putuskan koneksi Echo sepenuhnya saat MainPage di-dispose (logout)
+    EchoService.disconnect();
     super.dispose();
   }
 
@@ -162,17 +214,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Colors.white,
       body: IndexedStack(index: _selectedIndex, children: _pages),
-      // floatingActionButton: _selectedIndex == 2
-      //     ? null // ThreadsPage has its own FAB
-      //     : FloatingActionButton(
-      //         heroTag: 'main_fab',
-      //         onPressed: () {
-      //
-      //         },
-      //         backgroundColor: AppColors.primary,
-      //         shape: const CircleBorder(),
-      //         child: const Icon(Icons.confirmation_num, color: Colors.white),
-      //       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
@@ -187,20 +228,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               _buildBottomNavIcon(
                 Icons.chat_bubble_outline,
                 Icons.chat_bubble,
-                "Sessions",
+                'Sessions',
                 0,
               ),
-              _buildBottomNavIcon(Icons.search, Icons.search, "Search", 1),
+              _buildBottomNavIcon(Icons.search, Icons.search, 'Search', 1),
               _buildBottomNavIcon(
                 Icons.group_outlined,
                 Icons.group,
-                "Threads",
+                'Threads',
                 2,
               ),
               _buildBottomNavIcon(
                 Icons.person_outline,
                 Icons.person,
-                "Profile",
+                'Profile',
                 3,
               ),
             ],

@@ -6,8 +6,12 @@ class RealtimeEventBus {
   RealtimeEventBus._();
   static final RealtimeEventBus instance = RealtimeEventBus._();
 
-  // Track UUID sesi yang sedang aktif dibuka di ChatDetailPage
-  // MainPage menggunakannya untuk menghindari notifikasi ganda
+  // ---------------------------------------------------------------------------
+  // Active Session Tracking
+  // ---------------------------------------------------------------------------
+  // Track UUID sesi yang sedang aktif dibuka di ChatDetailPage.
+  // MainPage menggunakannya untuk menghindari notifikasi ganda saat user
+  // sudah berada di dalam chat tersebut.
   String? activeSessionUuid;
 
   void setActiveSession(String uuid) {
@@ -18,7 +22,11 @@ class RealtimeEventBus {
     activeSessionUuid = null;
   }
 
-  // Stream untuk refresh session list (SessionCreated / SessionUpdated)
+  // ---------------------------------------------------------------------------
+  // Stream: Session List Refresh
+  // ---------------------------------------------------------------------------
+  // Dipicu saat ada SessionCreated atau SessionUpdated dari Echo/MainPage.
+  // ChatPage (SessionListView) subscribe ini untuk refresh daftar sesi.
   final _sessionRefreshController = StreamController<void>.broadcast();
   Stream<void> get onSessionRefresh => _sessionRefreshController.stream;
 
@@ -28,7 +36,30 @@ class RealtimeEventBus {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Stream: Session Updated (dengan data)
+  // ---------------------------------------------------------------------------
+  // Dipicu saat MainPage menerima event .SessionUpdated dari Echo.
+  // Membawa session_uuid agar ChatDetailPage bisa filter apakah sesi
+  // yang sedang dibuka adalah sesi yang diupdate.
+  //
+  // Payload: Map berisi minimal {'session_uuid': String}
+  final _sessionUpdatedController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onSessionUpdated =>
+      _sessionUpdatedController.stream;
+
+  void notifySessionUpdated(Map<String, dynamic> data) {
+    if (!_sessionUpdatedController.isClosed) {
+      _sessionUpdatedController.add(data);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dispose
+  // ---------------------------------------------------------------------------
   void dispose() {
     _sessionRefreshController.close();
+    _sessionUpdatedController.close();
   }
 }

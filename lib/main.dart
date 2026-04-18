@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'core/services/fcm_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/cubit/app_auth/app_auth_cubit.dart';
 import 'features/auth/cubit/app_auth/app_auth_state.dart';
@@ -10,26 +11,23 @@ import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dar
 import 'features/auth/ui/login_page.dart';
 import 'features/main/ui/main_page.dart';
 
-// WAJIB: Background FCM handler harus top-level function
-// Didaftarkan sebelum runApp() agar aktif saat app terminated
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint('FCM [BG]: ${message.notification?.title}');
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Inisialisasi Firebase
   await Firebase.initializeApp();
 
-  // Daftarkan background handler sebelum runApp
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // WAJIB: Daftarkan background handler SEBELUM runApp & SEBELUM user login
+  // Harus top-level function dengan @pragma('vm:entry-point')
+  // Handler ini aktif saat app terminated/background tanpa Flutter engine
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // CATATAN: NotificationService.init() & FcmService.init() TIDAK dipanggil di sini
+  // karena keduanya membutuhkan auth token yang baru tersedia setelah login.
+  // Keduanya dipanggil di MainPage._initRealTime() setelah auth ready.
 
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -53,14 +51,11 @@ class MyApp extends StatelessWidget {
           home: BlocBuilder<AppAuthCubit, AppAuthState>(
             builder: (context, state) {
               if (state is AppAuthAuthenticated) {
-                // Return MainPage (wrapper BottomNavigation) ketika login
                 return const MainPage();
               }
               if (state is AppAuthUnauthenticated) {
-                // Return ke layar login
                 return LoginPage();
               }
-              // Jika baru mengecek token lokal, bisa kembali ke splash screen / spinner kosong
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );

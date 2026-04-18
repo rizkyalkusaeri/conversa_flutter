@@ -11,6 +11,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   final ChatRepository _repository;
   final SessionService _sessionService;
   final SessionModel initialSession;
+  late SessionModel currentSession;
   int _currentPage = 1;
 
   ChatDetailCubit({
@@ -19,6 +20,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
     SessionService? sessionService,
   })  : _repository = repository ?? ChatRepository(),
         _sessionService = sessionService ?? SessionService(),
+        currentSession = initialSession,
         super(ChatDetailInitial());
 
   Future<void> loadInitialChats({String searchQuery = ''}) async {
@@ -27,7 +29,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
       _currentPage = 1;
       final response = await _repository.getChats(initialSession.id, _currentPage, search: searchQuery);
       emit(ChatDetailLoaded(
-        session: initialSession,
+        session: currentSession,
         chats: response.data,
         hasReachedMax: response.meta.currentPage == response.meta.lastPage || response.data.isEmpty,
         searchQuery: searchQuery,
@@ -116,8 +118,9 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   }
 
   void updateSession(SessionModel newSession) {
+    currentSession = newSession;
     if (state is ChatDetailLoaded) {
-      emit((state as ChatDetailLoaded).copyWith(session: newSession));
+      emit((state as ChatDetailLoaded).copyWith(session: currentSession));
     }
   }
 
@@ -127,7 +130,8 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
       final currentState = state as ChatDetailLoaded;
       try {
         final updatedSession = await _sessionService.getSessionByUuid(initialSession.id);
-        emit(currentState.copyWith(session: updatedSession));
+        currentSession = updatedSession;
+        emit(currentState.copyWith(session: currentSession));
       } catch (e) {
         // Jika gagal reload session, tidak perlu crash — biarkan UI tetap tampil
         debugPrint('reloadSession error: $e');

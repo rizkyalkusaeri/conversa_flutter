@@ -13,7 +13,6 @@ import 'chat_detail_page.dart';
 import '../cubit/chat_detail_cubit.dart';
 import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
-import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 
 class ChatPage extends StatefulWidget {
@@ -200,33 +199,15 @@ class SessionListView extends StatefulWidget {
 
 class _SessionListViewState extends State<SessionListView> {
   final _scrollController = ScrollController();
-  int? _userId;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authState = context.read<AppAuthCubit>().state;
-      if (authState is AppAuthAuthenticated) {
-        _userId = authState.user.id;
-        EchoService.listen('user.$_userId', '.SessionUpdated', (data) {
-          if (mounted) {
-            final state = context.read<SessionListCubit>().state;
-            final query = (state is SessionListLoaded) ? state.searchQuery : '';
-            context.read<SessionListCubit>().loadInitial(searchQuery: query);
-          }
-        });
-        EchoService.listen('user.$_userId', '.SessionCreated', (data) {
-          if (mounted) {
-            final state = context.read<SessionListCubit>().state;
-            final query = (state is SessionListLoaded) ? state.searchQuery : '';
-            context.read<SessionListCubit>().loadInitial(searchQuery: query);
-          }
-        });
-      }
-    });
+    // CATATAN: Listener Echo untuk SessionCreated/SessionUpdated TIDAK dipasang di sini.
+    // Channel 'user.$userId' dikelola secara global oleh MainPage.
+    // SessionListView menerima update melalui RealtimeEventBus.onSessionRefresh
+    // yang di-trigger oleh MainPage saat event tiba.
   }
 
   void _onScroll() {
@@ -241,9 +222,9 @@ class _SessionListViewState extends State<SessionListView> {
 
   @override
   void dispose() {
-    if (_userId != null) {
-      EchoService.leave('user.$_userId');
-    }
+    // PENTING: Jangan panggil EchoService.leave('user.$userId') di sini!
+    // Channel user.$userId adalah milik MainPage — me-leave-nya dari child
+    // widget akan memutus semua listener realtime global.
     _scrollController.dispose();
     super.dispose();
   }

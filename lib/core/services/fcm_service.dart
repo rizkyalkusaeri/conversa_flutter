@@ -31,30 +31,30 @@ class FcmService {
     );
     debugPrint('FCM permission: ${settings.authorizationStatus}');
 
-    // 2. Daftarkan background handler (sebelum app siap)
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    // CATATAN: onBackgroundMessage WAJIB didaftarkan di main() sebelum runApp()
+    // Jangan daftarkan di sini untuk menghindari konflik isolate
 
-    // 3. Handle pesan saat app FOREGROUND
+    // 2. Handle pesan saat app FOREGROUND
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-    // 4. Handle tap notifikasi saat app BACKGROUND (buka dari background)
+    // 3. Handle tap notifikasi saat app BACKGROUND (buka dari background)
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-    // 5. Handle tap notifikasi saat app TERMINATED (dilaunch dari notifikasi)
+    // 4. Handle tap notifikasi saat app TERMINATED (dilaunch dari notifikasi)
     final initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
       debugPrint('FCM [Terminated tap]: ${initialMessage.data}');
       _handleNotificationTap(initialMessage);
     }
 
-    // 6. Upload token ke server
+    // 5. Upload token ke server
     final token = await _fcm.getToken();
     if (token != null) {
       debugPrint('FCM Token: $token');
       await uploadTokenToServer(token);
     }
 
-    // 7. Subscribe ke token refresh
+    // 6. Subscribe ke token refresh
     _fcm.onTokenRefresh.listen(uploadTokenToServer);
   }
 
