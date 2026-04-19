@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'notification_service.dart';
 import '../network/api_config.dart';
 import '../storage/storage_manager.dart';
+import '../network/echo_service.dart';
 
 /// Background message handler — WAJIB top-level function (bukan method)
 @pragma('vm:entry-point')
@@ -106,6 +107,16 @@ class FcmService {
   /// Handle pesan FCM saat app FOREGROUND
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('FCM [Foreground]: ${message.notification?.title}');
+
+    // Jika Echo WebSocket AKTIF, berarti MainPage sudah menampilkan notifikasi
+    // via _onNewMessageReceived / _onSessionCreated / _onSessionUpdated.
+    // Skip FCM agar tidak terjadi notifikasi ganda (Echo + FCM = 2x popup).
+    // Saat Echo tidak aktif (jaringan putus, baru resume), FCM tetap menampilkan notifikasi.
+    if (EchoService.isConnected) {
+      debugPrint('FCM [Foreground]: Echo aktif, skip FCM popup untuk hindari duplikasi.');
+      return;
+    }
+
     final notification = message.notification;
     if (notification != null) {
       // Tampilkan melalui flutter_local_notifications agar bisa custom styling
