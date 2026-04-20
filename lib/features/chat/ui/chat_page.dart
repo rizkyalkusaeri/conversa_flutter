@@ -73,7 +73,7 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text(
-            "Sessions",
+            "Chat",
             style: TextStyle(
               color: AppColors.textDark,
               fontWeight: FontWeight.bold,
@@ -110,7 +110,7 @@ class _ChatPageState extends State<ChatPage> {
         controller: _searchController,
         onChanged: _onSearchChanged,
         decoration: InputDecoration(
-          hintText: 'Cari tiket/deskripsi...',
+          hintText: 'Cari Sesi...',
           prefixIcon: const Icon(Icons.search, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
@@ -135,8 +135,8 @@ class _ChatPageState extends State<ChatPage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _buildFilterChip('Active', 'active'),
-          _buildFilterChip('Closed/Requested', 'closed'),
+          _buildFilterChip('Aktif', 'active'),
+          _buildFilterChip('Riwayat', 'closed'),
         ],
       ),
     );
@@ -260,83 +260,94 @@ class _SessionListViewState extends State<SessionListView> {
             if (state is SessionListInitial || state is SessionListLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-        if (state is SessionListError) {
-          return Center(
-            child: Text(
-              state.message,
-              style: const TextStyle(color: Colors.red),
-            ),
-          );
-        }
-        if (state is SessionListLoaded) {
-          if (state.sessions.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () async {
-                await context.read<SessionListCubit>().loadInitial(
-                  searchQuery: state.searchQuery,
-                  newStatusFilter: context.read<SessionListCubit>().statusFilter,
-                );
-              },
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.4,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey.shade300),
-                          const SizedBox(height: 12),
-                          Text(
-                            "Tidak ada sesi saat ini.",
-                            style: TextStyle(color: Colors.grey.shade500),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            "Tarik ke bawah untuk memperbarui.",
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              await context.read<SessionListCubit>().loadInitial(
-                 searchQuery: state.searchQuery,
-                 newStatusFilter: context.read<SessionListCubit>().statusFilter,
+            if (state is SessionListError) {
+              return Center(
+                child: Text(
+                  state.message,
+                  style: const TextStyle(color: Colors.red),
+                ),
               );
-            },
-            child: ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              controller: _scrollController,
-              itemCount: state.hasReachedMax
-                  ? state.sessions.length
-                  : state.sessions.length + 1,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, color: Color(0xFFF5F5F5)),
-              itemBuilder: (context, index) {
-                if (index >= state.sessions.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+            }
+            if (state is SessionListLoaded) {
+              if (state.sessions.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    await context.read<SessionListCubit>().loadInitial(
+                      searchQuery: state.searchQuery,
+                      newStatusFilter: context
+                          .read<SessionListCubit>()
+                          .statusFilter,
+                    );
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.4,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: 56,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                "Tidak ada sesi saat ini.",
+                                style: TextStyle(color: Colors.grey.shade500),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Tarik ke bawah untuk memperbarui.",
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await context.read<SessionListCubit>().loadInitial(
+                    searchQuery: state.searchQuery,
+                    newStatusFilter: context
+                        .read<SessionListCubit>()
+                        .statusFilter,
                   );
-                }
-                return _buildSessionTile(context, state.sessions[index]);
-              },
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-      ),
+                },
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  controller: _scrollController,
+                  itemCount: state.hasReachedMax
+                      ? state.sessions.length
+                      : state.sessions.length + 1,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                  itemBuilder: (context, index) {
+                    if (index >= state.sessions.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
+                    return _buildSessionTile(context, state.sessions[index]);
+                  },
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
@@ -344,11 +355,17 @@ class _SessionListViewState extends State<SessionListView> {
   Widget _buildSessionTile(BuildContext context, SessionModel session) {
     final bool isOpen = session.status == 'OPEN';
     final bool isReqClose = session.status == 'REQ_CLOSE';
-    final statusColor = isOpen ? AppColors.success : (isReqClose ? Colors.amber : Colors.grey);
-    final statusLabel = isReqClose ? 'MENUNGGU RESPONS' : session.status.toUpperCase();
+    final statusColor = isOpen
+        ? AppColors.success
+        : (isReqClose ? Colors.amber : Colors.grey);
+    final statusLabel = isReqClose
+        ? 'MENUNGGU RESPONS'
+        : session.status.toUpperCase();
 
     final String identifier = session.isHaveUniqueId
-        ? (session.noAppl != null && session.noAppl!.isNotEmpty ? session.noAppl! : '-')
+        ? (session.noAppl != null && session.noAppl!.isNotEmpty
+              ? session.noAppl!
+              : '-')
         : (session.topicName ?? '-');
 
     // Determine opponent
@@ -364,7 +381,7 @@ class _SessionListViewState extends State<SessionListView> {
     } else {
       displayName = session.requesterName ?? 'Unknown';
     }
-    
+
     String initials = "U";
     if (displayName.isNotEmpty && displayName != 'Unknown') {
       final parts = displayName.split(" ").where((e) => e.isNotEmpty).toList();
@@ -384,11 +401,10 @@ class _SessionListViewState extends State<SessionListView> {
                 providers: [
                   BlocProvider(
                     create: (context) =>
-                        ChatDetailCubit(initialSession: session)..loadInitialChats(),
+                        ChatDetailCubit(initialSession: session)
+                          ..loadInitialChats(),
                   ),
-                  BlocProvider(
-                    create: (context) => SessionActionCubit(),
-                  ),
+                  BlocProvider(create: (context) => SessionActionCubit()),
                 ],
                 child: ChatDetailPage(session: session),
               ),
@@ -396,8 +412,8 @@ class _SessionListViewState extends State<SessionListView> {
           ).then((_) {
             if (mounted) {
               final query = (cubit.state is SessionListLoaded)
-                 ? (cubit.state as SessionListLoaded).searchQuery
-                 : '';
+                  ? (cubit.state as SessionListLoaded).searchQuery
+                  : '';
               cubit.loadInitial(searchQuery: query);
             }
           });
@@ -440,20 +456,25 @@ class _SessionListViewState extends State<SessionListView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        )),
+                        ),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: statusColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
@@ -468,11 +489,14 @@ class _SessionListViewState extends State<SessionListView> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            if (session.status == 'CLOSED' || session.status == 'Selesai') ...[
+                            if (session.status == 'CLOSED' ||
+                                session.status == 'Selesai') ...[
                               if (session.openRequestedAt == null)
                                 InkWell(
                                   onTap: () {
-                                    context.read<SessionActionCubit>().reopenSession(session.id);
+                                    context
+                                        .read<SessionActionCubit>()
+                                        .reopenSession(session.id);
                                   },
                                   borderRadius: BorderRadius.circular(20),
                                   child: const Padding(
@@ -524,13 +548,26 @@ class _SessionListViewState extends State<SessionListView> {
                                   ),
                                 ),
                               ),
-                            ]
-                          ]
+                            ],
+                          ],
                         ),
-                      ]
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          session.categoryName?.toUpperCase() ?? "-",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
-                    // Row 2: Ticket Number & Topic
+                    // Row 3: Ticket Number & Topic
                     Row(
                       children: [
                         Text(
@@ -566,8 +603,10 @@ class _SessionListViewState extends State<SessionListView> {
                     ),
                     const SizedBox(height: 6),
                     // Row 3: Message / Description
-                    if ((session.latestChat?.message ?? session.description) != null &&
-                        (session.latestChat?.message ?? session.description)!.isNotEmpty)
+                    if ((session.latestChat?.message ?? session.description) !=
+                            null &&
+                        (session.latestChat?.message ?? session.description)!
+                            .isNotEmpty)
                       Text(
                         (session.latestChat?.message ?? session.description)!,
                         style: TextStyle(
@@ -578,11 +617,11 @@ class _SessionListViewState extends State<SessionListView> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                  ]
-                )
-              )
-            ]
-          )
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -608,7 +647,7 @@ class _SessionListViewState extends State<SessionListView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Session Detail',
+                      'Detail Sesi',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -625,19 +664,19 @@ class _SessionListViewState extends State<SessionListView> {
                 const Divider(height: 1),
                 const SizedBox(height: 16),
 
-                _buildDetailRow('Ticket Number', '#${session.ticketNumber}'),
+                _buildDetailRow('Nomor Tiket', '#${session.ticketNumber}'),
                 _buildDetailRow('Status', session.status),
-                _buildDetailRow('Category', session.categoryName ?? '-'),
-                _buildDetailRow('Sub Category', session.subCategoryName ?? '-'),
-                _buildDetailRow('Topic', session.topicName ?? '-'),
+                _buildDetailRow('Kategori', session.categoryName ?? '-'),
+                _buildDetailRow('Sub Kategori', session.subCategoryName ?? '-'),
+                _buildDetailRow('Topik', session.topicName ?? '-'),
                 if (session.noAppl != null && session.noAppl!.isNotEmpty)
                   _buildDetailRow('No. Appl', session.noAppl!),
-                _buildDetailRow('Requester', session.requesterName ?? '-'),
-                _buildDetailRow('Resolver', session.resolverName ?? 'Menunggu'),
-                _buildDetailRow('Description', session.description ?? '-'),
+                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
+                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(
-                    'Created',
+                    'Dibuat',
                     '${session.createdAt!.day}/${session.createdAt!.month}/${session.createdAt!.year} '
                         '${session.createdAt!.hour.toString().padLeft(2, '0')}:${session.createdAt!.minute.toString().padLeft(2, '0')}',
                   ),
@@ -654,15 +693,16 @@ class _SessionListViewState extends State<SessionListView> {
                         MaterialPageRoute(
                           builder: (_) => BlocProvider(
                             create: (context) =>
-                                ChatDetailCubit(initialSession: session)..loadInitialChats(),
+                                ChatDetailCubit(initialSession: session)
+                                  ..loadInitialChats(),
                             child: ChatDetailPage(session: session),
                           ),
                         ),
                       ).then((_) {
                         if (mounted) {
                           final query = (cubit.state is SessionListLoaded)
-                             ? (cubit.state as SessionListLoaded).searchQuery
-                             : '';
+                              ? (cubit.state as SessionListLoaded).searchQuery
+                              : '';
                           cubit.loadInitial(searchQuery: query);
                         }
                       });

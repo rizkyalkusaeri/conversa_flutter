@@ -67,6 +67,14 @@ dev_dependencies:
   flutter_native_splash: ^2.4.5
   flutter_launcher_icons: ^0.13.1
 
+# Override pusher_client_fixed dengan versi lokal yang sudah dipatch.
+# Bug asal: Kotlin _pusherInstance tidak di-null saat disconnect(), sehingga
+# next init() mengabaikan token baru → auth fail (HTTP 500) setelah relogin.
+# Fix: _pusherInstance = null pada disconnect(), dan hapus guard if(_pusherInstance == null) pada init().
+dependency_overrides:
+  pusher_client_fixed:
+    path: packages/pusher_client_fixed
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

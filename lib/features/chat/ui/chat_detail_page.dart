@@ -96,14 +96,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     // Listen SessionUpdated via RealtimeEventBus (di-forward oleh MainPage)
     // TIDAK subscribe langsung ke Echo channel user.$userId
     // untuk menghindari duplikat listener
-    _sessionUpdatedSub =
-        RealtimeEventBus.instance.onSessionUpdated.listen((data) {
+    _sessionUpdatedSub = RealtimeEventBus.instance.onSessionUpdated.listen((
+      data,
+    ) {
       if (!mounted) return;
       final eventSessionUuid = data['session_uuid']?.toString();
-      if (eventSessionUuid != null &&
-          eventSessionUuid == widget.session.id) {
+      if (eventSessionUuid != null && eventSessionUuid == widget.session.id) {
         debugPrint(
-            'EventBus: SessionUpdated untuk sesi aktif (${widget.session.id}), reloading...');
+          'EventBus: SessionUpdated untuk sesi aktif (${widget.session.id}), reloading...',
+        );
         context.read<ChatDetailCubit>().reloadSession();
         context.read<ChatDetailCubit>().loadInitialChats();
       }
@@ -533,24 +534,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: const Text(
-                  "Lihat Detail",
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
                 ),
               ),
             ],

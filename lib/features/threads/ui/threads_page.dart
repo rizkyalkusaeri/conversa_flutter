@@ -90,7 +90,7 @@ class _ThreadsPageState extends State<ThreadsPage> {
                 onPressed: () => _navigateToCreateThread(context),
                 backgroundColor: AppColors.primary,
                 shape: const CircleBorder(),
-                child: const Icon(Icons.edit, color: Colors.white),
+                child: const Icon(Icons.add, color: Colors.white),
               )
             : null,
       ),
@@ -143,94 +143,100 @@ class _ThreadsPageState extends State<ThreadsPage> {
         _buildSearchBar(),
         Expanded(
           child: BlocBuilder<ThreadListCubit, ThreadListState>(
-      builder: (context, state) {
-        if (state is ThreadListLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
-        }
+            builder: (context, state) {
+              if (state is ThreadListLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                );
+              }
 
-        if (state is ThreadListError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: AppColors.error,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () =>
-                        context.read<ThreadListCubit>().loadInitial(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        if (state is ThreadListLoaded) {
-          if (state.threads.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () => context.read<ThreadListCubit>().loadInitial(),
-            child: ListView.builder(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: state.threads.length + (state.hasReachedMax ? 0 : 1),
-              itemBuilder: (context, index) {
-                if (index >= state.threads.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
+              if (state is ThreadListError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppColors.error,
+                          size: 48,
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          state.message,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () =>
+                              context.read<ThreadListCubit>().loadInitial(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
-                  );
+                  ),
+                );
+              }
+
+              if (state is ThreadListLoaded) {
+                if (state.threads.isEmpty) {
+                  return _buildEmptyState(context);
                 }
 
-                final thread = state.threads[index];
-                return ThreadCard(
-                  thread: thread,
-                  currentUserId: _currentUserId,
-                  onTap: () => _navigateToDetail(context, thread.id),
-                  onLike: () =>
-                      context.read<ThreadListCubit>().toggleLike(thread.id),
-                  onEdit: (thread.author.id == _currentUserId)
-                      ? () => _navigateToEditThread(context, thread)
-                      : null,
-                );
-              },
-            ),
-          );
-        }
+                return RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: () =>
+                      context.read<ThreadListCubit>().loadInitial(),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount:
+                        state.threads.length + (state.hasReachedMax ? 0 : 1),
+                    itemBuilder: (context, index) {
+                      if (index >= state.threads.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
 
-        return const SizedBox.shrink();
-      },
+                      final thread = state.threads[index];
+                      return ThreadCard(
+                        thread: thread,
+                        currentUserId: _currentUserId,
+                        onTap: () => _navigateToDetail(context, thread.id),
+                        onLike: () => context
+                            .read<ThreadListCubit>()
+                            .toggleLike(thread.id),
+                        onEdit: (thread.author.id == _currentUserId)
+                            ? () => _navigateToEditThread(context, thread)
+                            : null,
+                      );
+                    },
+                  ),
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
           ),
         ),
       ],
@@ -309,4 +315,3 @@ class _ThreadsPageState extends State<ThreadsPage> {
     }
   }
 }
-

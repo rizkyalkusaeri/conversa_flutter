@@ -48,6 +48,7 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           title: 'Conversa Apps',
           theme: AppTheme.lightTheme,
+          debugShowCheckedModeBanner: false,
           home: BlocBuilder<AppAuthCubit, AppAuthState>(
             builder: (context, state) {
               if (state is AppAuthAuthenticated) {

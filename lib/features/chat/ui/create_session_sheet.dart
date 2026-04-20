@@ -34,7 +34,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
 
   final _formKey = GlobalKey<FormState>();
   final SessionRepository _sessionRepo = SessionRepository();
-  
+
   String? _submitError;
 
   @override
@@ -140,7 +140,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      "NEW ENTRY",
+                      "Buat Sesi Sesuai Kategori",
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -149,7 +149,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      "Create New Session",
+                      "Buat Sesi Baru",
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -170,28 +170,40 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                 decoration: BoxDecoration(
                                   color: Colors.red.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.red.shade200),
+                                  border: Border.all(
+                                    color: Colors.red.shade200,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         _submitError!,
-                                        style: const TextStyle(color: Colors.red, fontSize: 13, height: 1.4),
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 13,
+                                          height: 1.4,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            FormLabel(text: "CATEGORY"),
+                            FormLabel(text: "KATEGORI"),
                             SearchableDropdownField(
-                              hintText: "Select category",
+                              hintText: "Pilih Kategori",
                               selectedItem: _selectedCategoryModel,
-                              onSearch: (keyword) => _sessionRepo.getCategories(search: keyword),
+                              onSearch: (keyword) =>
+                                  _sessionRepo.getCategories(search: keyword),
                               onChanged: (item) {
-                                if (item != null && item.id != _selectedCategoryId) {
+                                if (item != null &&
+                                    item.id != _selectedCategoryId) {
                                   setState(() {
                                     _selectedCategoryId = item.id;
                                     _selectedCategoryModel = item;
@@ -204,20 +216,27 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                     _noApplController.clear();
                                     _descController.clear();
                                   });
-                                  context.read<CreateSessionCubit>().onCategorySelected(item.id);
+                                  context
+                                      .read<CreateSessionCubit>()
+                                      .onCategorySelected(item.id);
                                 }
                               },
                             ),
                             const SizedBox(height: 20),
 
                             if (_selectedCategoryId != null) ...[
-                              FormLabel(text: "SUB-CATEGORY"),
+                              FormLabel(text: "SUB-KATEGORI"),
                               SearchableDropdownField(
-                                hintText: "Select sub-category",
+                                hintText: "Pilih Sub-Kategori",
                                 selectedItem: _selectedSubCategoryModel,
-                                onSearch: (keyword) => _sessionRepo.getSubCategories(_selectedCategoryId!, search: keyword),
+                                onSearch: (keyword) =>
+                                    _sessionRepo.getSubCategories(
+                                      _selectedCategoryId!,
+                                      search: keyword,
+                                    ),
                                 onChanged: (item) {
-                                  if (item != null && item.id != _selectedSubCategoryId) {
+                                  if (item != null &&
+                                      item.id != _selectedSubCategoryId) {
                                     setState(() {
                                       _selectedSubCategoryId = item.id;
                                       _selectedSubCategoryModel = item;
@@ -225,7 +244,9 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                       _selectedTopicModel = null;
                                       _noApplController.clear();
                                     });
-                                    context.read<CreateSessionCubit>().onSubCategorySelected(item);
+                                    context
+                                        .read<CreateSessionCubit>()
+                                        .onSubCategorySelected(item);
                                   }
                                 },
                               ),
@@ -235,7 +256,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                             if (_selectedSubCategoryId != null) ...[
                               // TOPIC ATAU UNIQUE NUMBER
                               if (isUniqueRequired) ...[
-                                FormLabel(text: "UNIQUE NUMBER"),
+                                FormLabel(text: "NOMOR APLIKASI"),
                                 FormTextField(
                                   controller: _noApplController,
                                   hintText: "e.g. #REF-9921",
@@ -244,11 +265,14 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                       : null,
                                 ),
                               ] else ...[
-                                FormLabel(text: "TOPIC"),
+                                FormLabel(text: "TOPIK"),
                                 SearchableDropdownField(
-                                  hintText: "Brief description of the session",
+                                  hintText: "Pilih Topik",
                                   selectedItem: _selectedTopicModel,
-                                  onSearch: (keyword) => _sessionRepo.getTopics(_selectedSubCategoryId!, search: keyword),
+                                  onSearch: (keyword) => _sessionRepo.getTopics(
+                                    _selectedSubCategoryId!,
+                                    search: keyword,
+                                  ),
                                   onChanged: (item) {
                                     setState(() {
                                       if (item != null) {
@@ -262,10 +286,10 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                               const SizedBox(height: 20),
 
                               // DESKRIPSI
-                              FormLabel(text: "DESCRIPTION/MESSAGE"),
+                              FormLabel(text: "DESKRIPSI/PESAN"),
                               FormTextField(
                                 controller: _descController,
-                                hintText: "Describe the issue...",
+                                hintText: "Deskripsi Masalah",
                                 maxLines: 3,
                                 validator: (val) => val == null || val.isEmpty
                                     ? "Deskripsi wajib diisi"
@@ -274,15 +298,19 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                               const SizedBox(height: 20),
 
                               // RESOLVER
-                              FormLabel(text: "RESOLVER SEARCH"),
+                              FormLabel(text: "Cari User HO"),
                               SearchableDropdownField(
-                                hintText: "Search team members...",
+                                hintText: "Cari User HO",
                                 selectedItem: _selectedResolverModel,
                                 prefixIcon: const Icon(
                                   Icons.search,
                                   color: AppColors.primary,
                                 ),
-                                onSearch: (keyword) => _sessionRepo.getResolvers(_selectedCategoryId!, search: keyword),
+                                onSearch: (keyword) =>
+                                    _sessionRepo.getResolvers(
+                                      _selectedCategoryId!,
+                                      search: keyword,
+                                    ),
                                 onChanged: (item) {
                                   setState(() {
                                     if (item != null) {
@@ -324,7 +352,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                   ),
                                 )
                               : const Text(
-                                  "Launch Session",
+                                  "Tambah Sesi",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
@@ -343,5 +371,4 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
       ),
     );
   }
-
 }

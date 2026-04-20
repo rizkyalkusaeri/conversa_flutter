@@ -55,7 +55,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // Pusher client plugin juga memiliki auto-reconnect native.
       // Kita tidak boleh memanggil EchoService.init() di sini karena akan bertabrakan dengan native reconnect.
       if (!EchoService.isConnected && _currentUserId != null) {
-        debugPrint('App resumed — Echo disconnected, requesting soft reconnect...');
+        debugPrint(
+          'App resumed — Echo disconnected, requesting soft reconnect...',
+        );
         EchoService.reconnect();
       }
     }
@@ -90,21 +92,34 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (_listenersRegistered || _currentUserId == null) return;
     _listenersRegistered = true;
 
-    debugPrint('Echo [MainPage]: Registering listeners for user $_currentUserId');
+    debugPrint(
+      'Echo [MainPage]: Registering listeners for user $_currentUserId',
+    );
 
     // Session events: refresh list + notifikasi + forward ke EventBus
     EchoService.listen(
-        'user.$_currentUserId', '.SessionCreated', _onSessionCreated);
+      'user.$_currentUserId',
+      '.SessionCreated',
+      _onSessionCreated,
+    );
     EchoService.listen(
-        'user.$_currentUserId', '.SessionUpdated', _onSessionUpdated);
+      'user.$_currentUserId',
+      '.SessionUpdated',
+      _onSessionUpdated,
+    );
 
     // Notifikasi pesan baru dari SEMUA sesi
     EchoService.listen(
-        'user.$_currentUserId', '.MessageSent', _onNewMessageReceived);
+      'user.$_currentUserId',
+      '.MessageSent',
+      _onNewMessageReceived,
+    );
 
     // Global Notification Listener (Filament / BroadcastNotificationCreated)
     EchoService.listenNotification(
-        'App.Models.User.$_currentUserId', _onNotificationEvent);
+      'App.Models.User.$_currentUserId',
+      _onNotificationEvent,
+    );
   }
 
   void _onSessionCreated(dynamic data) {
@@ -162,7 +177,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (sessionUuid != null &&
         sessionUuid == RealtimeEventBus.instance.activeSessionUuid) {
       debugPrint(
-          'Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi');
+        'Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi',
+      );
       return;
     }
 
@@ -171,10 +187,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ? (messageContent ?? 'Pesan baru')
         : '📎 Mengirim lampiran';
 
-    NotificationService.showNotification(
-      title: '💬 $senderName',
-      body: body,
-    );
+    NotificationService.showNotification(title: '💬 $senderName', body: body);
 
     // Refresh session list untuk update badge unread
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -185,7 +198,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     final title =
         data['title'] ?? data['data']?['title'] ?? 'Pemberitahuan Baru';
-    final body = data['body'] ??
+    final body =
+        data['body'] ??
         data['data']?['body'] ??
         'Cek aplikasi untuk info lebih lanjut.';
 
@@ -228,10 +242,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               _buildBottomNavIcon(
                 Icons.chat_bubble_outline,
                 Icons.chat_bubble,
-                'Sessions',
+                'Chat',
                 0,
               ),
-              _buildBottomNavIcon(Icons.search, Icons.search, 'Search', 1),
+              _buildBottomNavIcon(Icons.search, Icons.search, 'Pencarian', 1),
               _buildBottomNavIcon(
                 Icons.group_outlined,
                 Icons.group,
@@ -241,7 +255,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               _buildBottomNavIcon(
                 Icons.person_outline,
                 Icons.person,
-                'Profile',
+                'Profil',
                 3,
               ),
             ],

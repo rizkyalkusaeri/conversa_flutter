@@ -19,7 +19,7 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text(
-            'Profile',
+            'Profil',
             style: TextStyle(
               color: AppColors.textDark,
               fontWeight: FontWeight.bold,
@@ -243,25 +243,8 @@ class ProfilePage extends StatelessWidget {
         children: [
           _buildListTile(
             context: context,
-            icon: Icons.notifications_none,
-            title: "Notifications",
-            iconBgColor: AppColors.primaryContainer,
-            iconColor: AppColors.primary,
-            trailingWidget: Container(
-              margin: const EdgeInsets.only(right: 8),
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.secondary,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
-          _buildListTile(
-            context: context,
             icon: Icons.lock_outline,
-            title: "Change Password",
+            title: "Ganti Password",
             iconBgColor: AppColors.primaryContainer,
             iconColor: AppColors.primary,
             onTap: () {

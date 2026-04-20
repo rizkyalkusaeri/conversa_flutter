@@ -108,18 +108,19 @@ class FcmService {
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('FCM [Foreground]: ${message.notification?.title}');
 
-    // Jika Echo WebSocket AKTIF, berarti MainPage sudah menampilkan notifikasi
-    // via _onNewMessageReceived / _onSessionCreated / _onSessionUpdated.
+    // Gunakan isSubscribed (bukan isConnected) sebagai guard:
+    // isConnected = WebSocket terhubung ke server, tapi channel bisa gagal auth (404)
+    // isSubscribed = sudah ada event berhasil diterima → Echo benar-benar aktif
+    // Jika Echo fully subscribed, MainPage sudah menampilkan notifikasi via event listeners.
     // Skip FCM agar tidak terjadi notifikasi ganda (Echo + FCM = 2x popup).
-    // Saat Echo tidak aktif (jaringan putus, baru resume), FCM tetap menampilkan notifikasi.
-    if (EchoService.isConnected) {
-      debugPrint('FCM [Foreground]: Echo aktif, skip FCM popup untuk hindari duplikasi.');
+    if (EchoService.isSubscribed) {
+      debugPrint('FCM [Foreground]: Echo aktif+subscribed, skip FCM popup untuk hindari duplikasi.');
       return;
     }
 
     final notification = message.notification;
     if (notification != null) {
-      // Tampilkan melalui flutter_local_notifications agar bisa custom styling
+      // Echo tidak subscribed → tampilkan notifikasi dari FCM sebagai fallback
       await NotificationService.showNotification(
         title: notification.title ?? 'Notifikasi',
         body: notification.body ?? '',

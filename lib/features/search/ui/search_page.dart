@@ -63,7 +63,7 @@ class _SearchPageState extends State<SearchPage> {
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text(
-            'Search Sessions',
+            'Pencarian Sesi',
             style: TextStyle(
               color: AppColors.textDark,
               fontWeight: FontWeight.bold,
@@ -188,9 +188,9 @@ class _SearchPageState extends State<SearchPage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _buildFilterChip('All', 'all'),
-          _buildFilterChip('Open', 'open'),
-          _buildFilterChip('Closed', 'closed'),
+          _buildFilterChip('Semua', 'all'),
+          _buildFilterChip('Aktif', 'open'),
+          _buildFilterChip('Selesai', 'closed'),
         ],
       ),
     );
@@ -229,7 +229,9 @@ class _SearchPageState extends State<SearchPage> {
 
     // Determine the identifier line: no_appl if present, otherwise topic
     final String identifier = session.isHaveUniqueId
-        ? (session.noAppl != null && session.noAppl!.isNotEmpty ? session.noAppl! : '-')
+        ? (session.noAppl != null && session.noAppl!.isNotEmpty
+              ? session.noAppl!
+              : '-')
         : (session.topicName ?? '-');
 
     return Padding(
@@ -369,7 +371,7 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.person_outline,
                       session.requesterName ?? '-',
-                      'Requester',
+                      'Pembuat',
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -379,7 +381,7 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.support_agent_outlined,
                       session.resolverName ?? 'Menunggu',
-                      'Resolver',
+                      'Penjawab',
                     ),
                   ),
                 ],
@@ -462,21 +464,23 @@ class _SearchPageState extends State<SearchPage> {
                 const Divider(height: 1),
                 const SizedBox(height: 16),
 
-                _buildDetailRow('Ticket Number', '#${session.ticketNumber}'),
+                _buildDetailRow('Nomor Tiket', '#${session.ticketNumber}'),
                 _buildDetailRow('Status', session.status),
-                _buildDetailRow('Category', session.categoryName ?? '-'),
-                _buildDetailRow('Sub Category', session.subCategoryName ?? '-'),
-                _buildDetailRow('Topic', session.topicName ?? '-'),
-                if (session.isHaveUniqueId && session.noAppl != null && session.noAppl!.isNotEmpty)
+                _buildDetailRow('Kategori', session.categoryName ?? '-'),
+                _buildDetailRow('Sub Kategori', session.subCategoryName ?? '-'),
+                _buildDetailRow('Topik', session.topicName ?? '-'),
+                if (session.isHaveUniqueId &&
+                    session.noAppl != null &&
+                    session.noAppl!.isNotEmpty)
                   _buildDetailRow('No. Appl', session.noAppl!),
                 if (!session.isHaveUniqueId && session.topicName != null)
                   _buildDetailRow('Topik', session.topicName!),
-                _buildDetailRow('Requester', session.requesterName ?? '-'),
-                _buildDetailRow('Resolver', session.resolverName ?? 'Menunggu'),
-                _buildDetailRow('Description', session.description ?? '-'),
+                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
+                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(
-                    'Created',
+                    'Dibuat',
                     '${session.createdAt!.day}/${session.createdAt!.month}/${session.createdAt!.year} '
                         '${session.createdAt!.hour.toString().padLeft(2, '0')}:${session.createdAt!.minute.toString().padLeft(2, '0')}',
                   ),
