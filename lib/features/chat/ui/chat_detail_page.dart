@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +22,7 @@ import '../cubit/chat_detail_state.dart';
 import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import 'widgets/complete_session_dialog.dart';
+import 'widgets/image_preview_dialog.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 
@@ -170,6 +173,17 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
             ListTile(
               leading: const Icon(
+                Icons.camera_alt,
+                color: AppColors.primary,
+              ),
+              title: const Text('Kamera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takePhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
                 Icons.insert_drive_file,
                 color: AppColors.primary,
               ),
@@ -193,6 +207,58 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         ),
       ),
     );
+  }
+
+  Future<void> _takePhoto() async {
+    final cubit = context.read<ChatDetailCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Request Permission
+    var status = await Permission.camera.status;
+    if (status.isDenied) {
+      status = await Permission.camera.request();
+    }
+
+    if (status.isPermanentlyDenied) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akses kamera ditolak permanen. Silakan aktifkan di pengaturan.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!status.isGranted) return;
+
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70, // Optimize size
+    );
+
+    if (image != null) {
+      if (!mounted) return;
+
+      final result = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => ImagePreviewDialog(
+              imagePath: image.path,
+              onSend: () => Navigator.pop(ctx, true),
+              onRetake: () => Navigator.pop(ctx, false),
+            ),
+      );
+
+      if (result == true) {
+        cubit.sendMessage("", image);
+      } else if (result == false) {
+        // Retake
+        _takePhoto();
+      }
+    }
   }
 
   void _sendMessage() {

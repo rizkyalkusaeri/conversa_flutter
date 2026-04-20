@@ -11,6 +11,7 @@ import '../../../core/network/echo_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../../core/services/update_service.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -43,7 +44,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initUpdate();
     _initRealTime();
+  }
+
+  Future<void> _initUpdate() async {
+    // Jalankan cek update secara async tanpa menunggu UI terhambat
+    if (mounted) {
+      UpdateService.checkForUpdate(context);
+    }
   }
 
   @override

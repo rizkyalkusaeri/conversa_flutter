@@ -66,6 +66,12 @@
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+		<key>NSCameraUsageDescription</key>
+		<string>Aplikasi ini memerlukan akses ke kamera untuk mengambil foto dokumentasi chat.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Aplikasi ini memerlukan akses ke galeri untuk mengunggah foto dokumentasi chat.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Aplikasi ini memerlukan akses ke mikrofon jika Anda ingin merekam video.</string>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>
