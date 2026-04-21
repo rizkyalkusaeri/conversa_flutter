@@ -45,6 +45,13 @@ class ThreadRepository {
         : 'Gagal memperbarui thread');
   }
 
+  Future<PaginationResponse<CommentModel>> fetchComments(
+    String threadUuid, {
+    int page = 1,
+  }) {
+    return _service.getComments(threadUuid, page: page);
+  }
+
   Future<int> toggleLikeThread(String uuid) {
     return _service.toggleLikeThread(uuid);
   }

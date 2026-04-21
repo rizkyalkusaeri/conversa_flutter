@@ -10,6 +10,7 @@ import '../../auth/cubit/app_auth/app_auth_state.dart';
 import '../cubit/thread_detail_cubit.dart';
 import '../cubit/thread_detail_state.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'widgets/comment_tile.dart';
 import 'create_thread_page.dart';
 import 'dart:io';
@@ -31,14 +32,38 @@ class ThreadDetailPage extends StatefulWidget {
 class _ThreadDetailPageState extends State<ThreadDetailPage> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocus = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  ThreadDetailCubit? _cubit; // Store reference to avoid context lookup in scroll listener
   int? _replyToCommentId;
   String? _replyToAuthorName;
   final List<File> _selectedFiles = [];
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    // Trigger load more when 250px from bottom
+    if (currentScroll >= maxScroll - 250) {
+      final cubitState = _cubit?.state;
+      if (cubitState is ThreadDetailLoaded &&
+          cubitState.hasMoreComments &&
+          !cubitState.isLoadingMoreComments) {
+        _cubit?.loadComments(widget.threadUuid);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _commentController.dispose();
     _commentFocus.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -53,7 +78,10 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ThreadDetailCubit()..loadThread(widget.threadUuid),
+      create: (context) {
+        _cubit = ThreadDetailCubit()..loadThread(widget.threadUuid);
+        return _cubit!;
+      },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -109,12 +137,19 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
             }
 
             ThreadModel? thread;
+            List<CommentModel> comments = [];
             bool isCommenting = false;
+            bool isLoadingMore = false;
+            bool hasMore = true;
 
             if (state is ThreadDetailLoaded) {
               thread = state.thread;
+              comments = state.comments;
+              isLoadingMore = state.isLoadingMoreComments;
+              hasMore = state.hasMoreComments;
             } else if (state is ThreadDetailCommentPosting) {
               thread = state.thread;
+              comments = state.comments;
               isCommenting = true;
             }
 
@@ -129,6 +164,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                         .read<ThreadDetailCubit>()
                         .loadThread(widget.threadUuid),
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,10 +188,9 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                             ),
                           ),
 
-                          // Comments list
-                          if (thread.comments != null &&
-                              thread.comments!.isNotEmpty)
-                            ...thread.comments!.map(
+                          // Comments list (from paginated state)
+                          if (comments.isNotEmpty)
+                            ...comments.map(
                               (comment) => CommentTile(
                                 comment: comment,
                                 onLike: () => context
@@ -173,7 +208,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                                     .toggleLikeComment(replyId),
                               ),
                             )
-                          else
+                          else if (!isLoadingMore)
                             Padding(
                               padding: const EdgeInsets.all(24),
                               child: Center(
@@ -183,6 +218,31 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                                   style: TextStyle(
                                     color: Colors.grey.shade400,
                                     fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Load-more footer
+                          if (isLoadingMore)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          else if (!hasMore && comments.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: Text(
+                                  'Semua komentar sudah ditampilkan',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade400,
                                   ),
                                 ),
                               ),

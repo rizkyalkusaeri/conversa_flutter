@@ -90,7 +90,7 @@ class _ThreadsPageState extends State<ThreadsPage> {
                 onPressed: () => _navigateToCreateThread(context),
                 backgroundColor: AppColors.primary,
                 shape: const CircleBorder(),
-                child: const Icon(Icons.add, color: Colors.white),
+                child: const Icon(Icons.add_comment, color: Colors.white),
               )
             : null,
       ),

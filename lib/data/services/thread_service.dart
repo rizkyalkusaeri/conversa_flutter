@@ -110,6 +110,27 @@ class ThreadService {
     }
   }
 
+  /// Fetch paginated comments for a thread
+  Future<PaginationResponse<CommentModel>> getComments(
+    String threadUuid, {
+    int page = 1,
+    int limit = 15,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/threads/$threadUuid/comments',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+
+      return PaginationResponse<CommentModel>.fromJson(
+        response.data,
+        (json) => CommentModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      throw Exception('Gagal memuat komentar: $e');
+    }
+  }
+
   /// Post a comment on a thread
   Future<ApiResponse<CommentModel>> postComment(
       String threadUuid, FormData formData) async {

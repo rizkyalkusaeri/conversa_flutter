@@ -229,7 +229,12 @@ class CommentTile extends StatelessWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: attachments.where((a) => a.isImage).map((att) {
+              children: attachments.where((a) => a.isImage).toList().asMap().entries.map((entry) {
+                final idx = entry.key;
+                final att = entry.value;
+                // Use comment.id + index to guarantee a globally unique hero tag
+                // (att.id is 0 for comment attachments since they're stored as JSON paths)
+                final uniqueTag = 'comment_image_${comment.id}_$idx';
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -238,13 +243,13 @@ class CommentTile extends StatelessWidget {
                         builder:
                             (context) => FullScreenImageViewer(
                               imageUrl: '${ApiConfig.imageUrl}${att.url}',
-                              heroTag: 'comment_image_${att.id}',
+                              heroTag: uniqueTag,
                             ),
                       ),
                     );
                   },
                   child: Hero(
-                    tag: 'comment_image_${att.id}',
+                    tag: uniqueTag,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: CachedNetworkImage(

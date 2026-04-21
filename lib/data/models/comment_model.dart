@@ -49,15 +49,19 @@ class CommentModel {
             if (e is Map<String, dynamic>) {
               return ThreadAttachment.fromJson(e);
             }
-            // Fallback for cases where attachments are returned as plain URL strings
+            // Fallback: data lama yang tersimpan sebagai plain string URL
             final url = e.toString();
-            final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-                .any((ext) => url.toLowerCase().endsWith(ext));
+            // Normalisasi: jika full URL, strip domain
+            final normalizedUrl = url.startsWith('http')
+                ? Uri.parse(url).path
+                : url;
+            final ext = normalizedUrl.split('.').last.toLowerCase();
+            final imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
             return ThreadAttachment(
               id: 0,
-              url: url,
-              fileType: isImage ? 'image/unknown' : 'application/octet-stream',
-              originalName: url.split('/').last,
+              url: normalizedUrl,
+              fileType: imageExts.contains(ext) ? 'image/jpeg' : 'application/octet-stream',
+              originalName: normalizedUrl.split('/').last,
             );
           }).toList() ??
           [],

@@ -13,14 +13,51 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
     : _repository = repository ?? ThreadRepository(),
       super(ThreadDetailInitial());
 
-  /// Load thread detail with comments
+  /// Load thread detail (without comments). Comments are loaded separately.
   Future<void> loadThread(String uuid) async {
     emit(ThreadDetailLoading());
     try {
       final thread = await _repository.fetchThreadDetail(uuid);
       emit(ThreadDetailLoaded(thread: thread));
+      // Immediately load first page of comments
+      await loadComments(uuid, refresh: true);
     } catch (e) {
       emit(ThreadDetailError(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  /// Load (or load-more) paginated comments for a thread.
+  /// [refresh] = true resets the list and starts from page 1.
+  Future<void> loadComments(String threadUuid, {bool refresh = false}) async {
+    final currentState = state;
+    if (currentState is! ThreadDetailLoaded) return;
+
+    // Prevent duplicate loads
+    if (!refresh && currentState.isLoadingMoreComments) return;
+    if (!refresh && !currentState.hasMoreComments) return;
+
+    final nextPage = refresh ? 1 : currentState.currentPage + 1;
+
+    emit(currentState.copyWith(isLoadingMoreComments: true));
+
+    try {
+      final response = await _repository.fetchComments(threadUuid, page: nextPage);
+
+      final newComments = refresh
+          ? response.data
+          : [...currentState.comments, ...response.data];
+
+      final hasMore = response.meta.currentPage < response.meta.lastPage;
+
+      emit(currentState.copyWith(
+        comments: newComments,
+        currentPage: response.meta.currentPage,
+        hasMoreComments: hasMore,
+        isLoadingMoreComments: false,
+      ));
+    } catch (e) {
+      // Restore the state without loading indicator on error
+      emit(currentState.copyWith(isLoadingMoreComments: false));
     }
   }
 
@@ -44,28 +81,9 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
   /// Toggle like on a comment (optimistic)
   Future<void> toggleLikeComment(int commentId) async {
     final currentState = state;
-    if (currentState is ThreadDetailLoaded &&
-        currentState.thread.comments != null) {
-      // Deep update comment like status
-      final updatedComments = _toggleCommentLike(
-        currentState.thread.comments!,
-        commentId,
-      );
-
-      final updatedThread = ThreadModel(
-        id: currentState.thread.id,
-        content: currentState.thread.content,
-        status: currentState.thread.status,
-        createdAt: currentState.thread.createdAt,
-        author: currentState.thread.author,
-        likesCount: currentState.thread.likesCount,
-        commentsCount: currentState.thread.commentsCount,
-        isLikedByMe: currentState.thread.isLikedByMe,
-        attachments: currentState.thread.attachments,
-        comments: updatedComments,
-      );
-
-      emit(currentState.copyWith(thread: updatedThread));
+    if (currentState is ThreadDetailLoaded) {
+      final updatedComments = _toggleCommentLike(currentState.comments, commentId);
+      emit(currentState.copyWith(comments: updatedComments));
 
       try {
         await _repository.toggleLikeComment(commentId);
@@ -84,34 +102,42 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
   }) async {
     final currentState = state;
     if (currentState is ThreadDetailLoaded) {
-      emit(ThreadDetailCommentPosting(thread: currentState.thread));
+      emit(ThreadDetailCommentPosting(
+        thread: currentState.thread,
+        comments: currentState.comments,
+      ));
 
       try {
-        final map = <String, dynamic>{
-          'content': content,
-        };
+        // Bangun FormData secara eksplisit agar key 'attachments[]'
+        // terdaftar dengan benar oleh Dio (fromMap kurang reliable untuk List<MultipartFile>)
+        final formData = FormData();
+        formData.fields.add(MapEntry('content', content));
         if (parentId != null) {
-          map['parent_id'] = parentId;
+          formData.fields.add(MapEntry('parent_id', parentId.toString()));
         }
 
         if (attachments != null && attachments.isNotEmpty) {
-          final files = <MultipartFile>[];
           for (final file in attachments) {
-            files.add(await MultipartFile.fromFile(
-              file.path,
-              filename: file.path.split(Platform.pathSeparator).last,
+            formData.files.add(MapEntry(
+              'attachments[]',
+              await MultipartFile.fromFile(
+                file.path,
+                filename: file.path.split(Platform.pathSeparator).last,
+              ),
             ));
           }
-          map['attachments[]'] = files;
         }
 
-        final formData = FormData.fromMap(map);
         await _repository.postComment(threadUuid, formData);
 
-        // Reload thread to get fresh comments
-        await loadThread(threadUuid);
+        // Refresh comments from page 1 to get the new comment
+        final thread = await _repository.fetchThreadDetail(threadUuid);
+
+        // Emit loaded state first, then reload comments
+        emit(ThreadDetailLoaded(thread: thread));
+        await loadComments(threadUuid, refresh: true);
       } catch (e) {
-        // Restore loaded state and surface the error via a brief reload
+        // Restore to loaded state
         emit(currentState);
       }
     }
