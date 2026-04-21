@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_config.dart';
 import '../cubit/create_thread_cubit.dart';
 import '../cubit/create_thread_state.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 
 class CreateThreadPage extends StatefulWidget {
@@ -355,7 +357,7 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
 
   Widget _buildAttachmentActions() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -373,22 +375,115 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
           ),
           const Spacer(),
           IconButton(
-            icon: Icon(
-              Icons.photo_outlined,
+            icon: const Icon(
+              Icons.attach_file,
               color: AppColors.primary,
               size: 22,
             ),
-            onPressed: _pickImages,
-            tooltip: 'Pilih Gambar',
-          ),
-          IconButton(
-            icon: Icon(Icons.attach_file, color: AppColors.secondary, size: 22),
-            onPressed: _pickFiles,
-            tooltip: 'Pilih File',
+            onPressed: _showAttachmentOptions,
+            tooltip: 'Tambah Lampiran',
           ),
         ],
       ),
     );
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (ctx) => SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(
+                    Icons.camera_alt,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Kamera'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _takePhoto();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Galeri Gambar'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickImages();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.insert_drive_file,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Dokumen'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFiles();
+                  },
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  Future<void> _takePhoto() async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Request Permission
+    var status = await Permission.camera.status;
+    if (status.isDenied) {
+      status = await Permission.camera.request();
+    }
+
+    if (status.isPermanentlyDenied) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akses kamera ditolak permanen. Silakan aktifkan di pengaturan.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!status.isGranted) return;
+
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
+
+    if (image != null) {
+      if (!mounted) return;
+
+      final result = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => ImagePreviewDialog(
+              imagePath: image.path,
+              onSend: () => Navigator.pop(ctx, true),
+              onRetake: () => Navigator.pop(ctx, false),
+            ),
+      );
+
+      if (result == true) {
+        setState(() {
+          _selectedFiles.add(File(image.path));
+        });
+      } else if (result == false) {
+        _takePhoto();
+      }
+    }
   }
 
   Future<void> _pickImages() async {

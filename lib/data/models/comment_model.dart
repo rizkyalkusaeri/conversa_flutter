@@ -1,3 +1,5 @@
+import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+
 class CommentAuthor {
   final int? id;
   final String name;
@@ -17,7 +19,7 @@ class CommentAuthor {
 class CommentModel {
   final int id;
   final String content;
-  final List<String> attachments;
+  final List<ThreadAttachment> attachments;
   final CommentAuthor author;
   final int likesCount;
   final int repliesCount;
@@ -43,9 +45,21 @@ class CommentModel {
     return CommentModel(
       id: json['id'] ?? 0,
       content: json['content'] ?? '',
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      attachments: (json['attachments'] as List<dynamic>?)?.map((e) {
+            if (e is Map<String, dynamic>) {
+              return ThreadAttachment.fromJson(e);
+            }
+            // Fallback for cases where attachments are returned as plain URL strings
+            final url = e.toString();
+            final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+                .any((ext) => url.toLowerCase().endsWith(ext));
+            return ThreadAttachment(
+              id: 0,
+              url: url,
+              fileType: isImage ? 'image/unknown' : 'application/octet-stream',
+              originalName: url.split('/').last,
+            );
+          }).toList() ??
           [],
       author: CommentAuthor.fromJson(json['author'] ?? {}),
       likesCount: stats['likes_count'] ?? 0,
@@ -55,8 +69,7 @@ class CommentModel {
           ? DateTime.tryParse(json['created_at'])
           : null,
       replies: (json['replies'] as List<dynamic>?)
-              ?.map((e) =>
-                  CommentModel.fromJson(e as Map<String, dynamic>))
+              ?.map((e) => CommentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );

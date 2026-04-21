@@ -31,7 +31,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
             filename: file.path.split(Platform.pathSeparator).last,
           ));
         }
-        map['attachments'] = files;
+        map['attachments[]'] = files;
       }
 
       final formData = FormData.fromMap(map);
@@ -66,7 +66,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
             filename: file.path.split(Platform.pathSeparator).last,
           ));
         }
-        map['attachments'] = files;
+        map['attachments[]'] = files;
       }
 
       if (deleteAttachmentIds != null && deleteAttachmentIds.isNotEmpty) {

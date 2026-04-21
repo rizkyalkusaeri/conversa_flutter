@@ -12,7 +12,9 @@ import '../network/echo_service.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('FCM [Background]: ${message.notification?.title} / ${message.data}');
+  debugPrint(
+    'FCM [Background]: ${message.notification?.title} / ${message.data}',
+  );
   // flutter_local_notifications tidak bisa dipanggil di background isolate
   // FCM akan otomatis tampilkan system notification dari data.notification
 }
@@ -114,7 +116,9 @@ class FcmService {
     // Jika Echo fully subscribed, MainPage sudah menampilkan notifikasi via event listeners.
     // Skip FCM agar tidak terjadi notifikasi ganda (Echo + FCM = 2x popup).
     if (EchoService.isSubscribed) {
-      debugPrint('FCM [Foreground]: Echo aktif+subscribed, skip FCM popup untuk hindari duplikasi.');
+      debugPrint(
+        'FCM [Foreground]: Echo aktif+subscribed, skip FCM popup untuk hindari duplikasi.',
+      );
       return;
     }
 
@@ -134,7 +138,7 @@ class FcmService {
     final data = message.data;
     final sessionUuid = data['session_uuid'] as String?;
     debugPrint('FCM [Notification Tap]: session_uuid=$sessionUuid');
-    // TODO: navigasi ke ChatDetailPage setelah navigator siap
+    // navigasi ke ChatDetailPage setelah navigator siap
     // Ini akan dikaitkan dengan NavigationService di fase selanjutnya
   }
 }

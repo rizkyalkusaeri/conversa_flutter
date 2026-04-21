@@ -12,6 +12,11 @@ import '../cubit/thread_detail_state.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'widgets/comment_tile.dart';
 import 'create_thread_page.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:intl/intl.dart';
 
 class ThreadDetailPage extends StatefulWidget {
@@ -28,6 +33,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
   final FocusNode _commentFocus = FocusNode();
   int? _replyToCommentId;
   String? _replyToAuthorName;
+  final List<File> _selectedFiles = [];
 
   @override
   void dispose() {
@@ -468,6 +474,9 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Selected files preview
+            _buildSelectedFilesPreview(),
+
             // Reply indicator
             if (_replyToCommentId != null)
               Container(
@@ -512,6 +521,14 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.attach_file,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    onPressed: _showAttachmentOptions,
+                  ),
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -577,12 +594,13 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
 
   void _submitComment(BuildContext context) {
     final content = _commentController.text.trim();
-    if (content.isEmpty) return;
+    if (content.isEmpty && _selectedFiles.isEmpty) return;
 
     context.read<ThreadDetailCubit>().postComment(
       widget.threadUuid,
       content: content,
       parentId: _replyToCommentId,
+      attachments: _selectedFiles.isNotEmpty ? List.from(_selectedFiles) : null,
     );
 
     _commentController.clear();
@@ -590,7 +608,189 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
     setState(() {
       _replyToCommentId = null;
       _replyToAuthorName = null;
+      _selectedFiles.clear();
     });
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Kamera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takePhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeri Gambar'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImages();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.insert_drive_file,
+                color: AppColors.primary,
+              ),
+              title: const Text('Dokumen'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickFiles();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _takePhoto() async {
+    final messenger = ScaffoldMessenger.of(context);
+    var status = await Permission.camera.status;
+    if (status.isDenied) status = await Permission.camera.request();
+    if (status.isPermanentlyDenied) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akses kamera ditolak permanen. Silakan aktifkan di pengaturan.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (!status.isGranted) return;
+
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      if (!mounted) return;
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => ImagePreviewDialog(
+          imagePath: image.path,
+          onSend: () => Navigator.pop(ctx, true),
+          onRetake: () => Navigator.pop(ctx, false),
+        ),
+      );
+      if (result == true) {
+        setState(() => _selectedFiles.add(File(image.path)));
+      } else if (result == false) {
+        _takePhoto();
+      }
+    }
+  }
+
+  Future<void> _pickImages() async {
+    final picker = ImagePicker();
+    final images = await picker.pickMultiImage(imageQuality: 80);
+    if (images.isNotEmpty) {
+      setState(() => _selectedFiles.addAll(images.map((x) => File(x.path))));
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: [
+        'jpeg',
+        'png',
+        'jpg',
+        'pdf',
+        'xls',
+        'xlsx',
+        'doc',
+        'docx',
+      ],
+    );
+    if (result != null && result.files.isNotEmpty) {
+      setState(
+        () => _selectedFiles.addAll(
+          result.files.where((f) => f.path != null).map((f) => File(f.path!)),
+        ),
+      );
+    }
+  }
+
+  Widget _buildSelectedFilesPreview() {
+    if (_selectedFiles.isEmpty) return const SizedBox.shrink();
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _selectedFiles.length,
+        itemBuilder: (context, index) {
+          final file = _selectedFiles[index];
+          final isImage = [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+          ].contains(file.path.toLowerCase().split('.').last);
+          return Container(
+            margin: const EdgeInsets.only(right: 12),
+            width: 80,
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: isImage
+                      ? Image.file(
+                          file,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey.shade200,
+                          child: const Center(
+                            child: Icon(Icons.description, color: Colors.grey),
+                          ),
+                        ),
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedFiles.removeAt(index)),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _navigateToEdit(BuildContext context, ThreadModel thread) async {

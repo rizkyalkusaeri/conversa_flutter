@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:flutter/material.dart';
@@ -172,10 +171,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               },
             ),
             ListTile(
-              leading: const Icon(
-                Icons.camera_alt,
-                color: AppColors.primary,
-              ),
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
               title: const Text('Kamera'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -244,12 +240,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
       final result = await showDialog<bool>(
         context: context,
-        builder:
-            (ctx) => ImagePreviewDialog(
-              imagePath: image.path,
-              onSend: () => Navigator.pop(ctx, true),
-              onRetake: () => Navigator.pop(ctx, false),
-            ),
+        builder: (ctx) => ImagePreviewDialog(
+          imagePath: image.path,
+          onSend: () => Navigator.pop(ctx, true),
+          onRetake: () => Navigator.pop(ctx, false),
+        ),
       );
 
       if (result == true) {

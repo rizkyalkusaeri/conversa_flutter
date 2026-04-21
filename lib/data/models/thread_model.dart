@@ -83,10 +83,20 @@ class ThreadModel {
       likesCount: stats['likes_count'] ?? 0,
       commentsCount: stats['comments_count'] ?? 0,
       isLikedByMe: json['is_liked_by_me'] == true || json['is_liked_by_me'] == 1,
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) =>
-                  ThreadAttachment.fromJson(e as Map<String, dynamic>))
-              .toList() ??
+      attachments: (json['attachments'] as List<dynamic>?)?.map((e) {
+            if (e is Map<String, dynamic>) {
+              return ThreadAttachment.fromJson(e);
+            }
+            final url = e.toString();
+            final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+                .any((ext) => url.toLowerCase().endsWith(ext));
+            return ThreadAttachment(
+              id: 0,
+              url: url,
+              fileType: isImage ? 'image/unknown' : 'application/octet-stream',
+              originalName: url.split('/').last,
+            );
+          }).toList() ??
           [],
       comments: json['comments'] != null
           ? (json['comments'] as List<dynamic>)

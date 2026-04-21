@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/network/api_config.dart';
+import '../../../../features/chat/ui/widgets/full_screen_image_viewer.dart';
+import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 
 class CommentTile extends StatelessWidget {
   final CommentModel comment;
@@ -96,6 +101,10 @@ class CommentTile extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Attachments
+            if (comment.attachments.isNotEmpty)
+              _buildAttachments(context, comment.attachments),
 
             // Actions: Like + Reply
             Padding(
@@ -204,6 +213,124 @@ class CommentTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildAttachments(
+    BuildContext context,
+    List<ThreadAttachment> attachments,
+  ) {
+    return Padding(
+      padding: EdgeInsets.only(left: isNested ? 36 : 40, top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Images
+          if (attachments.any((a) => a.isImage))
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: attachments.where((a) => a.isImage).map((att) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => FullScreenImageViewer(
+                              imageUrl: '${ApiConfig.imageUrl}${att.url}',
+                              heroTag: 'comment_image_${att.id}',
+                            ),
+                      ),
+                    );
+                  },
+                  child: Hero(
+                    tag: 'comment_image_${att.id}',
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: '${ApiConfig.imageUrl}${att.url}',
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        placeholder:
+                            (context, url) => Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                        errorWidget:
+                            (context, url, error) => Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.broken_image),
+                            ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+          if (attachments.any((a) => a.isImage) &&
+              attachments.any((a) => !a.isImage))
+            const SizedBox(height: 8),
+
+          // Files
+          if (attachments.any((a) => !a.isImage))
+            ...attachments.where((a) => !a.isImage).map((att) {
+              return GestureDetector(
+                onTap: () => _launchURL('${ApiConfig.imageUrl}${att.url}'),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.attach_file,
+                        size: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          att.originalName ?? 'File',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      debugPrint('Could not launch $url');
+    }
   }
 
   String _getInitials(String name) {

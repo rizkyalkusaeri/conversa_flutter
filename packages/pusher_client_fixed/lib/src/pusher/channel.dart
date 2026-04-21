@@ -8,8 +8,9 @@ import '../contracts/stream_handler.dart';
 import '../models/event_stream_result.dart';
 
 class Channel extends StreamHandler {
-  static const MethodChannel _mChannel =
-      const MethodChannel('com.github.chinloyal/pusher_client');
+  static const MethodChannel _mChannel = const MethodChannel(
+    'com.github.chinloyal/pusher_client',
+  );
   static const classId = 'Channel';
 
   static Map<String, void Function(PusherEvent?)> _eventCallbacks =
@@ -21,9 +22,8 @@ class Channel extends StreamHandler {
     _subscribe();
   }
 
-  void _subscribe() => _mChannel.invokeMethod('subscribe', {
-        'channelName': name,
-      });
+  void _subscribe() =>
+      _mChannel.invokeMethod('subscribe', {'channelName': name});
 
   /// Binds a callback ([onEvent]) to an event. The
   /// callback will be notified whenever the specified
@@ -78,8 +78,9 @@ class Channel extends StreamHandler {
     var result = EventStreamResult.fromJson(jsonDecode(event.toString()));
 
     if (result.isPusherEvent) {
-      var callback = _eventCallbacks[
-          result.pusherEvent!.channelName! + result.pusherEvent!.eventName!];
+      var callback =
+          _eventCallbacks[result.pusherEvent!.channelName! +
+              result.pusherEvent!.eventName!];
       if (callback != null) {
         callback(result.pusherEvent);
       }

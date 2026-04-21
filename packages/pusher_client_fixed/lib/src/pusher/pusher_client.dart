@@ -17,8 +17,9 @@ part 'pusher_client.g.dart';
 /// if auto connect is disabled this means you can call
 /// `connect()` at a later point.
 class PusherClient extends StreamHandler {
-  static const MethodChannel _channel =
-      const MethodChannel('com.github.chinloyal/pusher_client');
+  static const MethodChannel _channel = const MethodChannel(
+    'com.github.chinloyal/pusher_client',
+  );
   static const classId = 'PusherClient';
 
   static PusherClient? _singleton;
@@ -89,9 +90,7 @@ class PusherClient extends StreamHandler {
 
   /// Unsubscribes from a channel using the name of the channel.
   Future<void> unsubscribe(String channelName) =>
-      _channel.invokeMethod('unsubscribe', {
-        'channelName': channelName,
-      });
+      _channel.invokeMethod('unsubscribe', {'channelName': channelName});
 
   /// Initiates a connection attempt using the client's
   /// existing connection details
@@ -112,8 +111,7 @@ class PusherClient extends StreamHandler {
   /// to Pusher and during disconnection and reconnection.
   void onConnectionStateChange(
     void Function(ConnectionStateChange? state) callback,
-  ) =>
-      _onConnectionStateChange = callback;
+  ) => _onConnectionStateChange = callback;
 
   /// Callback that indicates either:
   /// - An error message has been received from Pusher, or

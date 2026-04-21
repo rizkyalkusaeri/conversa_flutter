@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
@@ -79,17 +80,32 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
     String threadUuid, {
     required String content,
     int? parentId,
+    List<File>? attachments,
   }) async {
     final currentState = state;
     if (currentState is ThreadDetailLoaded) {
       emit(ThreadDetailCommentPosting(thread: currentState.thread));
 
       try {
-        final formData = FormData.fromMap({
+        final map = <String, dynamic>{
           'content': content,
-          'parent_id': ?parentId,
-        });
+        };
+        if (parentId != null) {
+          map['parent_id'] = parentId;
+        }
 
+        if (attachments != null && attachments.isNotEmpty) {
+          final files = <MultipartFile>[];
+          for (final file in attachments) {
+            files.add(await MultipartFile.fromFile(
+              file.path,
+              filename: file.path.split(Platform.pathSeparator).last,
+            ));
+          }
+          map['attachments[]'] = files;
+        }
+
+        final formData = FormData.fromMap(map);
         await _repository.postComment(threadUuid, formData);
 
         // Reload thread to get fresh comments
