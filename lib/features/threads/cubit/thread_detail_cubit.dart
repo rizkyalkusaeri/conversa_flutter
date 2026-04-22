@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
-import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'thread_detail_state.dart';
 
@@ -41,7 +40,10 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
     emit(currentState.copyWith(isLoadingMoreComments: true));
 
     try {
-      final response = await _repository.fetchComments(threadUuid, page: nextPage);
+      final response = await _repository.fetchComments(
+        threadUuid,
+        page: nextPage,
+      );
 
       final newComments = refresh
           ? response.data
@@ -49,12 +51,14 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
 
       final hasMore = response.meta.currentPage < response.meta.lastPage;
 
-      emit(currentState.copyWith(
-        comments: newComments,
-        currentPage: response.meta.currentPage,
-        hasMoreComments: hasMore,
-        isLoadingMoreComments: false,
-      ));
+      emit(
+        currentState.copyWith(
+          comments: newComments,
+          currentPage: response.meta.currentPage,
+          hasMoreComments: hasMore,
+          isLoadingMoreComments: false,
+        ),
+      );
     } catch (e) {
       // Restore the state without loading indicator on error
       emit(currentState.copyWith(isLoadingMoreComments: false));
@@ -82,7 +86,10 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
   Future<void> toggleLikeComment(int commentId) async {
     final currentState = state;
     if (currentState is ThreadDetailLoaded) {
-      final updatedComments = _toggleCommentLike(currentState.comments, commentId);
+      final updatedComments = _toggleCommentLike(
+        currentState.comments,
+        commentId,
+      );
       emit(currentState.copyWith(comments: updatedComments));
 
       try {
@@ -102,10 +109,12 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
   }) async {
     final currentState = state;
     if (currentState is ThreadDetailLoaded) {
-      emit(ThreadDetailCommentPosting(
-        thread: currentState.thread,
-        comments: currentState.comments,
-      ));
+      emit(
+        ThreadDetailCommentPosting(
+          thread: currentState.thread,
+          comments: currentState.comments,
+        ),
+      );
 
       try {
         // Bangun FormData secara eksplisit agar key 'attachments[]'
@@ -118,13 +127,15 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
 
         if (attachments != null && attachments.isNotEmpty) {
           for (final file in attachments) {
-            formData.files.add(MapEntry(
-              'attachments[]',
-              await MultipartFile.fromFile(
-                file.path,
-                filename: file.path.split(Platform.pathSeparator).last,
+            formData.files.add(
+              MapEntry(
+                'attachments[]',
+                await MultipartFile.fromFile(
+                  file.path,
+                  filename: file.path.split(Platform.pathSeparator).last,
+                ),
               ),
-            ));
+            );
           }
         }
 

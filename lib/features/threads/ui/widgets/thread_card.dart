@@ -117,9 +117,51 @@ class ThreadCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (thread.author.role != null) ...[
-                const SizedBox(height: 2),
-                _buildRoleBadge(thread.author.role!),
+              if (thread.visibleToLevels.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Builder(builder: (context) {
+                  const maxDisplay = 3;
+                  final displayList = thread.visibleToLevels.take(maxDisplay).toList();
+                  final remainingCount = thread.visibleToLevels.length - maxDisplay;
+
+                  return Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      ...displayList.map((level) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withAlpha(20),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          level,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      )),
+                      if (remainingCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '+$remainingCount lainnya',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
               ],
             ],
           ),
@@ -152,40 +194,6 @@ class ThreadCard extends StatelessWidget {
     );
   }
 
-  Widget _buildRoleBadge(String role) {
-    final isAdmin = role.toUpperCase() == 'ADMIN';
-    final isHO = role.toUpperCase() == 'HO';
-
-    Color bgColor;
-    Color textColor;
-
-    if (isAdmin) {
-      bgColor = AppColors.primary.withAlpha(25);
-      textColor = AppColors.primary;
-    } else if (isHO) {
-      bgColor = AppColors.secondary.withAlpha(25);
-      textColor = AppColors.secondary;
-    } else {
-      bgColor = Colors.grey.shade100;
-      textColor = Colors.grey.shade600;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        role,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
-    );
-  }
 
   Widget _buildAttachmentGrid() {
     final images = _imageAttachments;

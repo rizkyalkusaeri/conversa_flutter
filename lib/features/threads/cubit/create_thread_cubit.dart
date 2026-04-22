@@ -11,10 +11,15 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
       : _repository = repository ?? ThreadRepository(),
         super(CreateThreadInitial());
 
-  /// Create a new thread
+  /// Buat thread baru.
+  ///
+  /// [levelIds] — jabatan yang bisa melihat thread (opsional, kosong = publik)
+  /// [visibleUserIds] — user spesifik yang bisa melihat thread (opsional)
   Future<void> createThread({
     required String content,
     List<File>? attachments,
+    List<int>? levelIds,
+    List<int>? visibleUserIds,
   }) async {
     emit(CreateThreadLoading());
 
@@ -34,6 +39,20 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
         map['attachments[]'] = files;
       }
 
+      // Kirim jabatan yang ditarget (multi-value array)
+      if (levelIds != null && levelIds.isNotEmpty) {
+        for (int i = 0; i < levelIds.length; i++) {
+          map['levels[$i]'] = levelIds[i];
+        }
+      }
+
+      // Kirim user spesifik yang ditarget (multi-value array)
+      if (visibleUserIds != null && visibleUserIds.isNotEmpty) {
+        for (int i = 0; i < visibleUserIds.length; i++) {
+          map['visible_users[$i]'] = visibleUserIds[i];
+        }
+      }
+
       final formData = FormData.fromMap(map);
       await _repository.createThread(formData);
 
@@ -44,12 +63,17 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     }
   }
 
-  /// Update an existing thread
+  /// Update thread yang sudah ada.
+  ///
+  /// [levelIds] — jabatan yang bisa melihat thread (opsional)
+  /// [visibleUserIds] — user spesifik yang bisa melihat thread (opsional)
   Future<void> updateThread({
     required String uuid,
     required String content,
     List<File>? newAttachments,
     List<int>? deleteAttachmentIds,
+    List<int>? levelIds,
+    List<int>? visibleUserIds,
   }) async {
     emit(CreateThreadLoading());
 
@@ -75,6 +99,29 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
         }
       }
 
+      // Kirim jabatan yang ditarget (sync — kosong = hapus semua target)
+      if (levelIds != null) {
+        if (levelIds.isEmpty) {
+          // Kirim array kosong agar backend sync & hapus semua level
+          map['levels'] = <int>[];
+        } else {
+          for (int i = 0; i < levelIds.length; i++) {
+            map['levels[$i]'] = levelIds[i];
+          }
+        }
+      }
+
+      // Kirim user spesifik yang ditarget
+      if (visibleUserIds != null) {
+        if (visibleUserIds.isEmpty) {
+          map['visible_users'] = <int>[];
+        } else {
+          for (int i = 0; i < visibleUserIds.length; i++) {
+            map['visible_users[$i]'] = visibleUserIds[i];
+          }
+        }
+      }
+
       final formData = FormData.fromMap(map);
       await _repository.updateThread(uuid, formData);
 
@@ -85,7 +132,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     }
   }
 
-  /// Reset state back to initial
+  /// Reset state ke initial
   void reset() {
     emit(CreateThreadInitial());
   }

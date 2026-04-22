@@ -56,10 +56,24 @@ class RealtimeEventBus {
   }
 
   // ---------------------------------------------------------------------------
+  // Stream: Thread List Refresh
+  // ---------------------------------------------------------------------------
+  // Dipicu saat user pindah tab ke Threads atau saat ada thread baru.
+  final _threadRefreshController = StreamController<void>.broadcast();
+  Stream<void> get onThreadRefresh => _threadRefreshController.stream;
+
+  void notifyThreadRefresh() {
+    if (!_threadRefreshController.isClosed) {
+      _threadRefreshController.add(null);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Dispose
   // ---------------------------------------------------------------------------
   void dispose() {
     _sessionRefreshController.close();
     _sessionUpdatedController.close();
+    _threadRefreshController.close();
   }
 }

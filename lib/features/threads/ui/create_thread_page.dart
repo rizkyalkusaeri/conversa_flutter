@@ -10,6 +10,7 @@ import '../cubit/create_thread_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'widgets/thread_target_selector.dart';
 
 class CreateThreadPage extends StatefulWidget {
   final ThreadModel? editThread;
@@ -25,6 +26,11 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   final List<File> _selectedFiles = [];
   final List<int> _deleteAttachmentIds = [];
 
+  // Jabatan yang ditarget — kosong = thread publik (notifikasi ke semua)
+  List<int> _selectedLevelIds = [];
+  // User spesifik yang ditarget — kosong = semua user jabatan terpilih
+  List<int> _selectedUserIds = [];
+
   bool get _isEditMode => widget.editThread != null;
 
   @override
@@ -32,6 +38,9 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
     super.initState();
     if (_isEditMode) {
       _contentController.text = widget.editThread!.content;
+      // Pre-populate jabatan dan user yang sudah dipilih sebelumnya (mode edit)
+      _selectedLevelIds = List.from(widget.editThread!.selectedLevelIds);
+      _selectedUserIds = List.from(widget.editThread!.selectedUserIds);
     }
   }
 
@@ -145,6 +154,19 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                       height: 1.5,
                     ),
                   ),
+
+                  // ─── Jabatan & User Spesifik selector ───────────────────
+                  ThreadTargetSelector(
+                    initialLevelIds: _selectedLevelIds,
+                    initialUserIds: _selectedUserIds,
+                    onLevelsChanged: (ids) {
+                      setState(() => _selectedLevelIds = ids);
+                    },
+                    onUsersChanged: (ids) {
+                      setState(() => _selectedUserIds = ids);
+                    },
+                  ),
+                  // ────────────────────────────────────────────────────────
 
                   const SizedBox(height: 16),
 
@@ -539,14 +561,17 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
         uuid: widget.editThread!.id,
         content: content,
         newAttachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
-        deleteAttachmentIds: _deleteAttachmentIds.isNotEmpty
-            ? _deleteAttachmentIds
-            : null,
+        deleteAttachmentIds:
+            _deleteAttachmentIds.isNotEmpty ? _deleteAttachmentIds : null,
+        levelIds: _selectedLevelIds,
+        visibleUserIds: _selectedUserIds,
       );
     } else {
       context.read<CreateThreadCubit>().createThread(
         content: content,
         attachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
+        levelIds: _selectedLevelIds,
+        visibleUserIds: _selectedUserIds,
       );
     }
   }

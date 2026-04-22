@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'notification_service.dart';
+import 'navigation_service.dart';
 import '../network/api_config.dart';
 import '../storage/storage_manager.dart';
 import '../network/echo_service.dart';
@@ -79,18 +80,60 @@ class FcmService {
         ),
       );
       debugPrint('FCM: Token berhasil diupload ke server');
+
+      // Subscribe ke topic global thread setelah token berhasil diupload
+      await _subscribeToThreadTopic(authToken);
     } catch (e) {
       debugPrint('FCM: Gagal upload token: $e');
     }
   }
 
-  /// Hapus FCM token dari server (saat logout)
+  /// Subscribe FCM token ke topic global thread (fifgroup_all_threads).
+  /// Dipanggil otomatis setelah upload token berhasil.
+  static Future<void> _subscribeToThreadTopic(String authToken) async {
+    try {
+      final dio = Dio();
+      await dio.post(
+        '${ApiConfig.baseUrl}/fcm/subscribe-topic',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $authToken',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      debugPrint('FCM: Subscribed ke topic fifgroup_all_threads');
+    } catch (e) {
+      debugPrint('FCM: Gagal subscribe topic (akan retry saat login berikutnya): $e');
+    }
+  }
+
+  /// Hapus FCM token dari server (saat logout).
+  /// Juga unsubscribe dari topic global thread sebelum hapus token.
   static Future<void> deleteTokenFromServer() async {
     try {
       final authToken = await StorageManager.getToken();
       if (authToken == null) return;
 
       final dio = Dio();
+
+      // Unsubscribe dari topic thread terlebih dahulu (butuh token yang masih valid)
+      try {
+        await dio.post(
+          '${ApiConfig.baseUrl}/fcm/unsubscribe-topic',
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $authToken',
+              'Accept': 'application/json',
+            },
+          ),
+        );
+        debugPrint('FCM: Unsubscribed dari topic fifgroup_all_threads');
+      } catch (e) {
+        debugPrint('FCM: Gagal unsubscribe topic: $e');
+      }
+
+      // Hapus token dari server
       await dio.delete(
         '${ApiConfig.baseUrl}/fcm-token',
         options: Options(
@@ -110,11 +153,40 @@ class FcmService {
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('FCM [Foreground]: ${message.notification?.title}');
 
-    // Gunakan isSubscribed (bukan isConnected) sebagai guard:
-    // isConnected = WebSocket terhubung ke server, tapi channel bisa gagal auth (404)
-    // isSubscribed = sudah ada event berhasil diterima → Echo benar-benar aktif
-    // Jika Echo fully subscribed, MainPage sudah menampilkan notifikasi via event listeners.
-    // Skip FCM agar tidak terjadi notifikasi ganda (Echo + FCM = 2x popup).
+    final type = message.data['type'] as String?;
+
+    if (type == 'new_thread') {
+      // Untuk notifikasi thread: cek apakah pembuat adalah user yang sedang login
+      // Jika ya, skip — pembuat tidak perlu menerima notifikasi threadnya sendiri
+      final creatorId = message.data['creator_id'] as String?;
+      final userJson = await StorageManager.getUser();
+      if (userJson != null && creatorId != null) {
+        // Parse user id dari JSON yang tersimpan di local storage
+        try {
+          final decoded = jsonDecode(userJson) as Map<String, dynamic>;
+          final currentUserId = decoded['id']?.toString();
+          if (currentUserId == creatorId) {
+            debugPrint('FCM [Foreground]: Thread dibuat oleh user sendiri, skip notifikasi.');
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Tampilkan notifikasi thread menggunakan channel thread
+      final notification = message.notification;
+      if (notification != null) {
+        await NotificationService.showNotification(
+          title: notification.title ?? '📢 Thread Baru',
+          body: notification.body ?? '',
+          payload: jsonEncode(message.data),
+          channelId: 'fifgroup_thread_channel',
+        );
+      }
+      return;
+    }
+
+    // Untuk notifikasi NON-thread (chat, session, dll):
+    // Skip jika Echo sudah fully subscribed → hindari notifikasi ganda
     if (EchoService.isSubscribed) {
       debugPrint(
         'FCM [Foreground]: Echo aktif+subscribed, skip FCM popup untuk hindari duplikasi.',
@@ -124,7 +196,6 @@ class FcmService {
 
     final notification = message.notification;
     if (notification != null) {
-      // Echo tidak subscribed → tampilkan notifikasi dari FCM sebagai fallback
       await NotificationService.showNotification(
         title: notification.title ?? 'Notifikasi',
         body: notification.body ?? '',
@@ -133,12 +204,30 @@ class FcmService {
     }
   }
 
-  /// Handle tap pada notifikasi FCM (deep link ke session)
+  /// Handle tap pada notifikasi FCM — routing ke halaman yang sesuai
+  /// berdasarkan field 'type' pada data payload.
   static void _handleNotificationTap(RemoteMessage message) {
     final data = message.data;
+    final type = data['type'] as String?;
+
+    debugPrint('FCM [Notification Tap]: type=$type, data=$data');
+
+    if (type == 'new_thread') {
+      final threadUuid = data['thread_uuid'] as String?;
+      if (threadUuid != null) {
+        // Delay kecil untuk memastikan MaterialApp + Navigator sudah fully mounted.
+        // Diperlukan terutama saat app dalam state TERMINATED (cold start).
+        Future.delayed(const Duration(milliseconds: 500), () {
+          NavigationService.navigateToThread(threadUuid);
+        });
+      }
+      return;
+    }
+
+    // Chat/session notifications — bisa ditambahkan di sini di masa mendatang
     final sessionUuid = data['session_uuid'] as String?;
-    debugPrint('FCM [Notification Tap]: session_uuid=$sessionUuid');
-    // navigasi ke ChatDetailPage setelah navigator siap
-    // Ini akan dikaitkan dengan NavigationService di fase selanjutnya
+    if (sessionUuid != null) {
+      debugPrint('FCM [Notification Tap]: session_uuid=$sessionUuid (handler belum diimplementasikan)');
+    }
   }
 }

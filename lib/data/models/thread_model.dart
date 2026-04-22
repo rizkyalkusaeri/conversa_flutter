@@ -55,6 +55,11 @@ class ThreadModel {
   final bool isLikedByMe;
   final List<ThreadAttachment> attachments;
   final List<CommentModel>? comments;
+  final List<String> visibleToLevels; // BARU: Nama jabatan target
+  // IDs jabatan yang ditarget — digunakan untuk pre-populate form edit
+  final List<int> selectedLevelIds;
+  // IDs user spesifik yang ditarget — digunakan untuk pre-populate form edit
+  final List<int> selectedUserIds;
 
   ThreadModel({
     required this.id,
@@ -67,6 +72,9 @@ class ThreadModel {
     required this.isLikedByMe,
     required this.attachments,
     this.comments,
+    this.visibleToLevels = const ['Semua Jabatan'],
+    this.selectedLevelIds = const [],
+    this.selectedUserIds = const [],
   });
 
   factory ThreadModel.fromJson(Map<String, dynamic> json) {
@@ -104,6 +112,19 @@ class ThreadModel {
                   CommentModel.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,
+      visibleToLevels: (json['visible_to_levels'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          ['Semua Jabatan'],
+      // Jabatan dan user spesifik dari response API (untuk pre-populate edit)
+      selectedLevelIds: (json['selected_level_ids'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [],
+      selectedUserIds: (json['selected_user_ids'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [],
     );
   }
 
@@ -120,6 +141,9 @@ class ThreadModel {
       isLikedByMe: !isLikedByMe,
       attachments: attachments,
       comments: comments,
+      visibleToLevels: visibleToLevels,
+      selectedLevelIds: selectedLevelIds,
+      selectedUserIds: selectedUserIds,
     );
   }
 }

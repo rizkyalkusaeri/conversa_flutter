@@ -227,9 +227,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
     setState(() {
       _selectedIndex = index;
     });
+
+    // Jika pindah ke tab Threads (index 2), picu refresh data terbaru
+    if (index == 2) {
+      RealtimeEventBus.instance.notifyThreadRefresh();
+    }
   }
 
   @override

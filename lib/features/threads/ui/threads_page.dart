@@ -11,6 +11,7 @@ import '../cubit/thread_list_state.dart';
 import 'widgets/thread_card.dart';
 import 'thread_detail_page.dart';
 import 'create_thread_page.dart';
+import '../../../core/services/realtime_event_bus.dart';
 
 class ThreadsPage extends StatefulWidget {
   const ThreadsPage({super.key});
@@ -24,12 +25,20 @@ class _ThreadsPageState extends State<ThreadsPage> {
   final TextEditingController _searchController = TextEditingController();
   late ThreadListCubit _cubit;
   Timer? _debounce;
+  StreamSubscription? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
     _cubit = ThreadListCubit()..loadInitial();
     _scrollController.addListener(_onScroll);
+
+    // Auto-refresh saat signal dikirim dari MainPage (misal pindah tab)
+    _refreshSubscription = RealtimeEventBus.instance.onThreadRefresh.listen((_) {
+      if (mounted) {
+        _cubit.loadInitial();
+      }
+    });
   }
 
   @override
@@ -37,6 +46,7 @@ class _ThreadsPageState extends State<ThreadsPage> {
     _scrollController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
+    _refreshSubscription?.cancel();
     _cubit.close();
     super.dispose();
   }

@@ -53,17 +53,45 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(channel);
     debugPrint('NotificationService: channel "fifgroup_chat_channel" registered');
+
+    // Channel khusus untuk notifikasi thread baru.
+    // Dipisah dari chat agar user Android bisa atur preferensi notif secara
+    // independen antara pesan chat dan thread forum.
+    const AndroidNotificationChannel threadChannel = AndroidNotificationChannel(
+      'fifgroup_thread_channel',
+      'FIFGROUP Threads',
+      description: 'Notifikasi untuk thread baru di forum diskusi.',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    await androidPlugin?.createNotificationChannel(threadChannel);
+    debugPrint('NotificationService: channel "fifgroup_thread_channel" registered');
   }
 
+  /// Tampilkan local notification.
+  ///
+  /// [channelId] menentukan notification channel Android yang digunakan.
+  /// Default: 'fifgroup_chat_channel' agar backward compatible dengan
+  /// semua pemanggil yang sudah ada.
+  /// Gunakan 'fifgroup_thread_channel' untuk notifikasi thread baru.
   static Future<void> showNotification({
     required String title,
     required String body,
     String? payload,
+    String channelId = 'fifgroup_chat_channel',
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'fifgroup_chat_channel',
-      'FIFGROUP Messages',
-      channelDescription: 'Notifications for incoming messages and session updates.',
+    final channelName = channelId == 'fifgroup_thread_channel'
+        ? 'FIFGROUP Threads'
+        : 'FIFGROUP Messages';
+    final channelDesc = channelId == 'fifgroup_thread_channel'
+        ? 'Notifikasi untuk thread baru di forum diskusi.'
+        : 'Notifications for incoming messages and session updates.';
+
+    final androidDetails = AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDesc,
       importance: Importance.max,
       priority: Priority.high,
       ticker: 'ticker',
@@ -76,7 +104,7 @@ class NotificationService {
       presentSound: true,
     );
 
-    const NotificationDetails platformDetails = NotificationDetails(
+    final NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
