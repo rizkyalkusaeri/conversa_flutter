@@ -12,6 +12,8 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/update_service.dart';
+import '../../../core/storage/storage_manager.dart';
+import '../../profile/ui/privacy_policy_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -46,6 +48,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initUpdate();
     _initRealTime();
+    _checkPrivacyPolicy();
+  }
+
+  Future<void> _checkPrivacyPolicy() async {
+    final accepted = await StorageManager.isPrivacyPolicyAccepted();
+    if (!accepted && mounted) {
+      // Tunggu sebentar agar build selesai sebelum menampilkan bottom sheet
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          PrivacyPolicyPage.showAcceptanceSheet(context);
+        }
+      });
+    }
   }
 
   Future<void> _initUpdate() async {

@@ -7,6 +7,7 @@ import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import '../cubit/profile_cubit.dart';
 import '../cubit/profile_state.dart';
 import 'change_password_page.dart';
+import 'privacy_policy_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -259,8 +260,24 @@ class ProfilePage extends StatelessWidget {
           const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
           _buildListTile(
             context: context,
+            icon: Icons.privacy_tip_outlined,
+            title: "Kebijakan Privasi",
+            iconBgColor: AppColors.primaryContainer,
+            iconColor: AppColors.primary,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyPolicyPage(),
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
+          _buildListTile(
+            context: context,
             icon: Icons.help_outline,
-            title: "Help & Support",
+            title: "Bantuan & Dukungan",
             iconBgColor: AppColors.primaryContainer,
             iconColor: AppColors.primary,
           ),
