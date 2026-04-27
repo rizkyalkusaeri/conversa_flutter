@@ -8,6 +8,7 @@ import 'core/services/navigation_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/cubit/app_auth/app_auth_cubit.dart';
 import 'features/auth/cubit/app_auth/app_auth_state.dart';
+import 'features/chat/cubit/active_session_count_cubit.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
 import 'features/auth/ui/login_page.dart';
 import 'features/main/ui/main_page.dart';
@@ -45,10 +46,13 @@ class MyApp extends StatelessWidget {
                 AppAuthCubit(authRepository: context.read<AuthRepository>())
                   ..checkAuthStatus(), // Langsung cek saat aplikasi hidup
           ),
+          BlocProvider(
+            create: (context) => ActiveSessionCountCubit(),
+          ),
         ],
         child: MaterialApp(
           navigatorKey: NavigationService.navigatorKey,
-          title: 'Conversa Apps',
+          title: 'Fi-Link',
           theme: AppTheme.lightTheme,
           debugShowCheckedModeBanner: false,
           home: BlocBuilder<AppAuthCubit, AppAuthState>(

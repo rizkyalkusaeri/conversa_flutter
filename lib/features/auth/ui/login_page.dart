@@ -53,7 +53,7 @@ class LoginPage extends StatelessWidget {
                   Center(
                     child: SizedBox(
                       child: const Image(
-                        image: AssetImage("assets/images/1.png"),
+                        image: AssetImage("assets/images/logo_filink.png"),
                         width: 150,
                         height: 150,
                       ),

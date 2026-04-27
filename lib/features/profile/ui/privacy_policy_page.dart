@@ -22,7 +22,11 @@ class PrivacyPolicyPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textDark, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppColors.textDark,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -59,11 +63,12 @@ class PrivacyPolicyContent extends StatelessWidget {
         _buildSection(
           title: '1. Pendahuluan',
           content:
-              'Selamat datang di Conversa, aplikasi manajemen tiket internal FIFGROUP. Kami sangat menghargai privasi Anda dan berkomitmen untuk melindungi data pribadi Anda. Kebijakan ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan menjaga keamanan informasi Anda saat menggunakan aplikasi ini.',
+              'Selamat datang di Fi-Link, aplikasi manajemen tiket internal FIFGROUP. Kami sangat menghargai privasi Anda dan berkomitmen untuk melindungi data pribadi Anda. Kebijakan ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan menjaga keamanan informasi Anda saat menggunakan aplikasi ini.',
         ),
         _buildSection(
           title: '2. Informasi yang Kami Kumpulkan',
-          content: 'Kami mengumpulkan informasi yang diperlukan untuk operasional sistem ticketing, antara lain:',
+          content:
+              'Kami mengumpulkan informasi yang diperlukan untuk operasional sistem ticketing, antara lain:',
           bullets: [
             'Informasi Profil: Nama lengkap, nomor karyawan (NIK), jabatan, level, dan lokasi kerja.',
             'Informasi Akun: Email perusahaan dan kredensial akses yang aman.',
@@ -115,7 +120,11 @@ class PrivacyPolicyContent extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.privacy_tip_outlined, color: AppColors.primary, size: 40),
+          const Icon(
+            Icons.privacy_tip_outlined,
+            color: AppColors.primary,
+            size: 40,
+          ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
@@ -144,7 +153,11 @@ class PrivacyPolicyContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSection({required String title, required String content, List<String>? bullets}) {
+  Widget _buildSection({
+    required String title,
+    required String content,
+    List<String>? bullets,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 28.0),
       child: Column(
@@ -169,34 +182,36 @@ class PrivacyPolicyContent extends StatelessWidget {
           ),
           if (bullets != null) ...[
             const SizedBox(height: 12),
-            ...bullets.map((bullet) => Padding(
-                  padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
+            ...bullets.map(
+              (bullet) => Padding(
+                padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        bullet,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textDark.withValues(alpha: 0.8),
+                          height: 1.5,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          bullet,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textDark.withValues(alpha: 0.8),
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -210,7 +225,7 @@ class PrivacyPolicyContent extends StatelessWidget {
           Divider(color: Colors.grey.shade200),
           const SizedBox(height: 24),
           Text(
-            'Conversa by FIFGROUP',
+            'Fi-Link by FIFGROUP',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,

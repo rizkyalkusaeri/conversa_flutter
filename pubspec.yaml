@@ -81,19 +81,21 @@ dependency_overrides:
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/1.png
+  image: assets/images/filink_app_launcher.png
   android: true
   ios: true
   android_12:
-    image: assets/images/1.png
+    color: "#ffffff"
+    image: assets/images/filink_app_launcher.png
 
 flutter_launcher_icons:
-  android: false
+  android: true
   ios: true
-  image_path: "assets/images/1.png"
+  image_path: "assets/images/launcher.png"
+  adaptive_icon_foreground_inset: 10
   android_notification_icon:
-    enabled: false
-    image_path: "assets/images/2.png"
+    enabled: true
+    image_path: "assets/images/launcher.png"
     name: "ic_notification"
 
 # The following section is specific to Flutter packages.

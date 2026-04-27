@@ -12,7 +12,7 @@ class NotificationService {
     await Permission.notification.request();
 
     const AndroidInitializationSettings androidInitializationSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_notification');
 
     const DarwinInitializationSettings iosInitializationSettings =
         DarwinInitializationSettings(
@@ -95,7 +95,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       ticker: 'ticker',
-      icon: '@mipmap/ic_launcher',
+      icon: 'ic_notification',
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(

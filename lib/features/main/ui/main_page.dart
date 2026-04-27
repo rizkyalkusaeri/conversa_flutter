@@ -14,6 +14,8 @@ import '../../../core/services/fcm_service.dart';
 import '../../../core/services/update_service.dart';
 import '../../../core/storage/storage_manager.dart';
 import '../../profile/ui/privacy_policy_page.dart';
+import '../../chat/cubit/active_session_count_cubit.dart';
+import '../../chat/cubit/active_session_count_state.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -110,6 +112,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     // 4. Daftarkan Echo listeners — hanya sekali
     _registerEchoListeners();
+
+    if (mounted) {
+      context.read<ActiveSessionCountCubit>().fetchCount();
+    }
   }
 
   void _registerEchoListeners() {
@@ -309,11 +315,30 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            isActive ? activeIcon : icon,
-            color: isActive ? AppColors.primary : Colors.grey,
-            size: 24,
-          ),
+          if (index == 0) // Chat icon with badge
+            BlocBuilder<ActiveSessionCountCubit, ActiveSessionCountState>(
+              builder: (context, state) {
+                int count = 0;
+                if (state is ActiveSessionCountLoaded) {
+                  count = state.count;
+                }
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count.toString()),
+                  child: Icon(
+                    isActive ? activeIcon : icon,
+                    color: isActive ? AppColors.primary : Colors.grey,
+                    size: 24,
+                  ),
+                );
+              },
+            )
+          else
+            Icon(
+              isActive ? activeIcon : icon,
+              color: isActive ? AppColors.primary : Colors.grey,
+              size: 24,
+            ),
           const SizedBox(height: 4),
           Text(
             label,
