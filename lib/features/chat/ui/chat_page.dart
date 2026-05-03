@@ -263,7 +263,7 @@ class _SessionListViewState extends State<SessionListView> {
             if (state is SessionListError) {
               return Center(
                 child: Text(
-                  state.message,
+                  "Terdapat Kesalahan Saat Memuat Data",
                   style: const TextStyle(color: Colors.red),
                 ),
               );

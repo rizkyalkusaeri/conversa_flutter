@@ -20,3 +20,8 @@ class AppAuthAuthenticated extends AppAuthState {
 }
 
 class AppAuthUnauthenticated extends AppAuthState {}
+
+/// Khusus untuk force logout akibat token expired dari server.
+/// Berbeda dengan AppAuthUnauthenticated (logout manual) agar
+/// UI bisa menampilkan dialog "Sesi habis" kepada user.
+class AppAuthSessionExpired extends AppAuthState {}

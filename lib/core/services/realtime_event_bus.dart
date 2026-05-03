@@ -69,11 +69,25 @@ class RealtimeEventBus {
   }
 
   // ---------------------------------------------------------------------------
+  // Stream: Search Refresh
+  // ---------------------------------------------------------------------------
+  // Dipicu saat user pindah tab ke Pencarian.
+  final _searchRefreshController = StreamController<void>.broadcast();
+  Stream<void> get onSearchRefresh => _searchRefreshController.stream;
+
+  void notifySearchRefresh() {
+    if (!_searchRefreshController.isClosed) {
+      _searchRefreshController.add(null);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Dispose
   // ---------------------------------------------------------------------------
   void dispose() {
     _sessionRefreshController.close();
     _sessionUpdatedController.close();
     _threadRefreshController.close();
+    _searchRefreshController.close();
   }
 }

@@ -89,17 +89,6 @@ class LoginPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       FormLabel(text: "PASSWORD"),
-                      // TextButton(
-                      //   onPressed: () {},
-                      //   child: const Text(
-                      //     "FORGOT PASSWORD?",
-                      //     style: TextStyle(
-                      //       color: AppColors.primary,
-                      //       fontSize: 12,
-                      //       fontWeight: FontWeight.bold,
-                      //     ),
-                      //   ),
-                      // ),
                     ],
                   ),
                   FormTextField(
@@ -112,6 +101,34 @@ class LoginPage extends StatelessWidget {
                     },
                   ),
 
+                  // Banner rate-limit — tampil hanya saat IP sedang diblokir
+                  if (state.isRateLimited) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.error.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock_clock_outlined, color: AppColors.error, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Login diblokir sementara. Coba lagi dalam ${state.retryAfterSeconds} detik.',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 30),
 
                   // BUTTON LOGIN
@@ -119,28 +136,21 @@ class LoginPage extends StatelessWidget {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: state.isLoading
+                      // Nonaktifkan tombol saat loading ATAU sedang rate-limited
+                      onPressed: (state.isLoading || state.isRateLimited)
                           ? null
                           : () => context.read<LoginCubit>().login(
-                              usernameController.text,
-                              passwordController.text,
-                            ),
+                                usernameController.text,
+                                passwordController.text,
+                              ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: Colors.grey.shade400,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
                       ),
-                      child: state.isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "Login",
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      child: _buildButtonContent(state),
                     ),
                   ),
 
@@ -156,7 +166,31 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  // Widget Helper untuk Label
-
-  // Widget Helper untuk TextField
+  /// Konten tombol login:
+  /// - Loading  → CircularProgressIndicator
+  /// - Blocked  → countdown timer
+  /// - Normal   → teks "Login"
+  Widget _buildButtonContent(LoginState state) {
+    if (state.isLoading) {
+      return const CircularProgressIndicator(color: Colors.white);
+    }
+    if (state.isRateLimited) {
+      return Text(
+        'Coba lagi dalam ${state.retryAfterSeconds}s',
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white70,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+    return const Text(
+      "Login",
+      style: TextStyle(
+        fontSize: 18,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
 }

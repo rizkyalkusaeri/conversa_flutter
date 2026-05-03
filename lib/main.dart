@@ -55,12 +55,68 @@ class MyApp extends StatelessWidget {
           title: 'Fi-Link',
           theme: AppTheme.lightTheme,
           debugShowCheckedModeBanner: false,
-          home: BlocBuilder<AppAuthCubit, AppAuthState>(
+          home: BlocConsumer<AppAuthCubit, AppAuthState>(
+            listener: (context, state) {
+              if (state is AppAuthSessionExpired) {
+                // Pastikan tidak ada dialog lain yang terbuka terlebih dahulu
+                NavigationService.navigatorKey.currentState
+                    ?.popUntil((route) => route.isFirst);
+
+                showDialog(
+                  context: NavigationService.navigatorKey.currentContext!,
+                  barrierDismissible: false,
+                  builder: (_) => AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    icon: const Icon(
+                      Icons.lock_clock_outlined,
+                      size: 48,
+                      color: Color(0xFFE53935),
+                    ),
+                    title: const Text(
+                      'Sesi Telah Berakhir',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    content: const Text(
+                      'Sesi Anda telah habis atau tidak valid. Silakan login kembali untuk melanjutkan.',
+                      textAlign: TextAlign.center,
+                    ),
+                    actionsAlignment: MainAxisAlignment.center,
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(
+                            NavigationService.navigatorKey.currentContext!,
+                          ).pop();
+                          // Pindah ke LoginPage via cubit
+                          context
+                              .read<AppAuthCubit>()
+                              .goToLogin();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(160, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Login Kembali'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
             builder: (context, state) {
               if (state is AppAuthAuthenticated) {
                 return const MainPage();
               }
               if (state is AppAuthUnauthenticated) {
+                return LoginPage();
+              }
+              if (state is AppAuthSessionExpired) {
+                // Tampilkan LoginPage di background saat dialog muncul
                 return LoginPage();
               }
               return const Scaffold(

@@ -25,6 +25,8 @@ class FcmService {
 
   static FirebaseMessaging get _fcm => FirebaseMessaging.instance;
 
+  static bool _listenersRegistered = false;
+
   /// Inisialisasi FCM: minta permission, setup handler, upload token
   static Future<void> init() async {
     // 1. Minta permission notifikasi
@@ -38,28 +40,32 @@ class FcmService {
     // CATATAN: onBackgroundMessage WAJIB didaftarkan di main() sebelum runApp()
     // Jangan daftarkan di sini untuk menghindari konflik isolate
 
-    // 2. Handle pesan saat app FOREGROUND
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    if (!_listenersRegistered) {
+      // 2. Handle pesan saat app FOREGROUND
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-    // 3. Handle tap notifikasi saat app BACKGROUND (buka dari background)
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+      // 3. Handle tap notifikasi saat app BACKGROUND (buka dari background)
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-    // 4. Handle tap notifikasi saat app TERMINATED (dilaunch dari notifikasi)
-    final initialMessage = await _fcm.getInitialMessage();
-    if (initialMessage != null) {
-      debugPrint('FCM [Terminated tap]: ${initialMessage.data}');
-      _handleNotificationTap(initialMessage);
+      // 4. Handle tap notifikasi saat app TERMINATED (dilaunch dari notifikasi)
+      final initialMessage = await _fcm.getInitialMessage();
+      if (initialMessage != null) {
+        debugPrint('FCM [Terminated tap]: ${initialMessage.data}');
+        _handleNotificationTap(initialMessage);
+      }
+
+      // 6. Subscribe ke token refresh
+      _fcm.onTokenRefresh.listen(uploadTokenToServer);
+      
+      _listenersRegistered = true;
     }
 
-    // 5. Upload token ke server
+    // 5. Upload token ke server (Selalu dijalankan setiap login untuk memastikan server punya token)
     final token = await _fcm.getToken();
     if (token != null) {
       debugPrint('FCM Token: $token');
       await uploadTokenToServer(token);
     }
-
-    // 6. Subscribe ke token refresh
-    _fcm.onTokenRefresh.listen(uploadTokenToServer);
   }
 
   /// Upload FCM token ke server Laravel

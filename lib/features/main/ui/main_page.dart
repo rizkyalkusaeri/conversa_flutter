@@ -254,6 +254,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _selectedIndex = index;
     });
 
+    // Jika pindah ke tab Search (index 1), picu refresh data terbaru
+    if (index == 1) {
+      RealtimeEventBus.instance.notifySearchRefresh();
+    }
+
     // Jika pindah ke tab Threads (index 2), picu refresh data terbaru
     if (index == 2) {
       RealtimeEventBus.instance.notifyThreadRefresh();

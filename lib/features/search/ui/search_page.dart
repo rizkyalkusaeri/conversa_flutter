@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fifgroup_android_ticketing/core/services/realtime_event_bus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -22,11 +23,25 @@ class _SearchPageState extends State<SearchPage> {
   late SearchCubit _cubit;
   Timer? _debounce;
 
+  StreamSubscription? _refreshSubscription;
+
   @override
   void initState() {
     super.initState();
     _cubit = SearchCubit()..loadInitial();
     _scrollController.addListener(_onScroll);
+
+    // Auto-refresh saat signal dikirim dari MainPage (misal pindah tab)
+    _refreshSubscription = RealtimeEventBus.instance.onSearchRefresh.listen((
+      _,
+    ) {
+      if (mounted) {
+        _cubit.loadInitial(
+          searchQuery: _searchController.text,
+          statusFilter: _selectedStatus,
+        );
+      }
+    });
   }
 
   void _onScroll() {
@@ -51,6 +66,7 @@ class _SearchPageState extends State<SearchPage> {
     _scrollController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
+    _refreshSubscription?.cancel();
     _cubit.close();
     super.dispose();
   }
