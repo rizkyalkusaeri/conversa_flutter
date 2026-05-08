@@ -12,6 +12,7 @@ import 'widgets/thread_card.dart';
 import 'thread_detail_page.dart';
 import 'create_thread_page.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/services/notification_service.dart';
 
 class ThreadsPage extends StatefulWidget {
   const ThreadsPage({super.key});
@@ -33,10 +34,17 @@ class _ThreadsPageState extends State<ThreadsPage> {
     _cubit = ThreadListCubit()..loadInitial();
     _scrollController.addListener(_onScroll);
 
+    // Bersihkan notifikasi thread saat halaman pertama kali dibuka.
+    // Ini sebagai secondary defense jika user langsung membuka ThreadsPage
+    // tanpa melalui _onItemTapped di MainPage.
+    NotificationService.cancelByContext(ActiveAppPage.threads);
+
     // Auto-refresh saat signal dikirim dari MainPage (misal pindah tab)
     _refreshSubscription = RealtimeEventBus.instance.onThreadRefresh.listen((_) {
       if (mounted) {
         _cubit.loadInitial();
+        // Bersihkan notifikasi thread saat tab Threads di-tap kembali.
+        NotificationService.cancelByContext(ActiveAppPage.threads);
       }
     });
   }
@@ -293,6 +301,10 @@ class _ThreadsPageState extends State<ThreadsPage> {
   }
 
   void _navigateToDetail(BuildContext context, String threadUuid) async {
+    // Hapus semua notifikasi saat user membuka thread dari dalam app.
+    // Menangani kasus: notif thread masuk saat app aktif, lalu user
+    // langsung buka thread via list tanpa tap notifikasi.
+    NotificationService.clearAll();
     await Navigator.push(
       context,
       MaterialPageRoute(

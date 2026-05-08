@@ -14,6 +14,7 @@ import '../cubit/chat_detail_cubit.dart';
 import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/services/notification_service.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -394,6 +395,10 @@ class _SessionListViewState extends State<SessionListView> {
         borderRadius: BorderRadius.circular(14),
         onTap: () {
           final cubit = context.read<SessionListCubit>();
+          // Hapus semua notifikasi saat user membuka session dari dalam app.
+          // Ini menangani kasus: notif pesan masuk saat app aktif, lalu
+          // user langsung buka session via list tanpa tap notifikasi.
+          NotificationService.clearAll();
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -688,6 +693,8 @@ class _SessionListViewState extends State<SessionListView> {
                     onPressed: () {
                       final cubit = context.read<SessionListCubit>();
                       Navigator.pop(ctx);
+                      // Hapus semua notifikasi saat user membuka session dari popup detail.
+                      NotificationService.clearAll();
                       Navigator.push(
                         context,
                         MaterialPageRoute(

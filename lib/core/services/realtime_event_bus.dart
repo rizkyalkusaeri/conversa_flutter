@@ -1,10 +1,26 @@
 import 'dart:async';
+import 'package:fifgroup_android_ticketing/core/services/notification_service.dart';
 
 /// Simple event bus untuk mengirim signal realtime antar widget
 /// tanpa keharusan membagi BuildContext atau Cubit secara langsung.
 class RealtimeEventBus {
   RealtimeEventBus._();
   static final RealtimeEventBus instance = RealtimeEventBus._();
+
+  // ---------------------------------------------------------------------------
+  // Active Page Tracking
+  // ---------------------------------------------------------------------------
+  // Track halaman/tab yang sedang aktif agar notifikasi kontekstual bisa
+  // dibersihkan secara spesifik tanpa cancelAll().
+  ActiveAppPage? activePage;
+
+  void setActivePage(ActiveAppPage page) {
+    activePage = page;
+  }
+
+  void clearActivePage() {
+    activePage = null;
+  }
 
   // ---------------------------------------------------------------------------
   // Active Session Tracking

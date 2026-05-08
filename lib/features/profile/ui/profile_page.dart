@@ -274,13 +274,13 @@ class ProfilePage extends StatelessWidget {
             },
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
-          _buildListTile(
-            context: context,
-            icon: Icons.help_outline,
-            title: "Bantuan & Dukungan",
-            iconBgColor: AppColors.primaryContainer,
-            iconColor: AppColors.primary,
-          ),
+          // _buildListTile(
+          //   context: context,
+          //   icon: Icons.help_outline,
+          //   title: "Bantuan & Dukungan",
+          //   iconBgColor: AppColors.primaryContainer,
+          //   iconColor: AppColors.primary,
+          // ),
         ],
       ),
     );

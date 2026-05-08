@@ -51,6 +51,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _initUpdate();
     _initRealTime();
     _checkPrivacyPolicy();
+    // Bersihkan semua notifikasi saat app pertama kali dibuka.
+    NotificationService.clearAll();
   }
 
   Future<void> _checkPrivacyPolicy() async {
@@ -77,6 +79,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       debugPrint('App resumed — checking Echo connection...');
+      // Bersihkan semua notifikasi saat app kembali ke foreground.
+      NotificationService.clearAll();
       // Kalau koneksi Echo putus, panggil reconnect (tanpa re-init/destroy koneksi lama)
       // Pusher client plugin juga memiliki auto-reconnect native.
       // Kita tidak boleh memanggil EchoService.init() di sini karena akan bertabrakan dengan native reconnect.
@@ -166,6 +170,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         body: ticketNumber != null
             ? 'Tiket #$ticketNumber telah dibuat.'
             : 'Sesi baru tersedia.',
+        notificationId: NotificationId.sessionCreated,
       );
     }
   }
@@ -190,6 +195,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           body: status != null
               ? 'Status sesi berubah menjadi $status.'
               : 'Sesi telah diperbarui.',
+          notificationId: NotificationId.sessionUpdated,
         );
       }
     }
@@ -217,7 +223,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ? (messageContent ?? 'Pesan baru')
         : '📎 Mengirim lampiran';
 
-    NotificationService.showNotification(title: '💬 $senderName', body: body);
+    NotificationService.showNotification(
+      title: '💬 $senderName',
+      body: body,
+      notificationId: NotificationId.newMessage,
+    );
 
     // Refresh session list untuk update badge unread
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -232,10 +242,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         data['body'] ??
         data['data']?['body'] ??
         'Cek aplikasi untuk info lebih lanjut.';
+    final String? notifType = data['type'] as String?;
+
+    // Jika backend mengirimkan type='thread', gunakan thread notification ID
+    // agar notif terhapus otomatis saat user membuka tab Threads.
+    final notifId = (notifType == 'thread')
+        ? NotificationId.thread
+        : NotificationId.globalNotification;
 
     NotificationService.showNotification(
       title: title.toString(),
       body: body.toString(),
+      channelId: (notifType == 'thread')
+          ? 'fifgroup_thread_channel'
+          : 'fifgroup_chat_channel',
+      notificationId: notifId,
     );
   }
 
@@ -253,6 +274,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     setState(() {
       _selectedIndex = index;
     });
+
+    // Map index → ActiveAppPage dan langsung cancel notifikasi kontekstual.
+    // Dengan ID deterministik, hanya notifikasi yang relevan dengan halaman
+    // tersebut yang dihapus — tanpa cancelAll().
+    const pageMap = {
+      0: ActiveAppPage.chat,
+      1: ActiveAppPage.search,
+      2: ActiveAppPage.threads,
+      3: ActiveAppPage.profile,
+    };
+    final page = pageMap[index];
+    if (page != null) {
+      RealtimeEventBus.instance.setActivePage(page);
+      NotificationService.cancelByContext(page);
+    }
 
     // Jika pindah ke tab Search (index 1), picu refresh data terbaru
     if (index == 1) {
