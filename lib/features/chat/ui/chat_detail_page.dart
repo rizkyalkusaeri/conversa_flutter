@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/full_screen_image_viewer.dart';
+import 'widgets/rating_dialog.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/cubit/app_auth/app_auth_cubit.dart';
 import '../../auth/cubit/app_auth/app_auth_state.dart';
@@ -606,6 +607,24 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             },
           ),
         if (status == 'CLOSED') ...[
+          // Tombol rating jika belum diberi penilaian dan user adalah requester
+          if (isRequester && session.rating == null)
+            IconButton(
+              icon: const Icon(Icons.star_border_rounded, color: Colors.amber, size: 28),
+              tooltip: 'Beri Penilaian',
+              onPressed: () async {
+                final result = await showDialog<SessionModel>(
+                  context: context,
+                  builder: (ctx) => BlocProvider.value(
+                    value: context.read<SessionActionCubit>(),
+                    child: RatingDialog(session: session),
+                  ),
+                );
+                if (result != null) {
+                  _handleActionSuccess(result);
+                }
+              },
+            ),
           if (session.openRequestedAt == null)
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.blue),

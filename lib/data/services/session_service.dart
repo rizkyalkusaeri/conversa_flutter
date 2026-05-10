@@ -77,37 +77,42 @@ class SessionService {
       );
     } on DioException catch (e) {
       if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal membuat sesi';
-        
-        if (data['errors'] != null && data['errors'] is Map) {
-          final Map errors = data['errors'];
-          if (errors.isNotEmpty) {
-            final firstKey = errors.keys.first;
-            final errorValues = errors[firstKey];
-            if (errorValues is List && errorValues.isNotEmpty) {
-              errorMessage = errorValues.first.toString();
-            } else if (errorValues is String) {
-              errorMessage = errorValues;
-            }
-          }
-        }
-        
-        final pendingUuid = data['data']?['pending_session_uuid'];
-        if (e.response!.statusCode == 403 && pendingUuid != null) {
+        final resData = e.response!.data is Map ? e.response!.data as Map : {};
+        final String errorMessage = resData['message'] ?? 'Gagal membuat sesi';
+        final errors = resData['errors'];
+
+        // Cek pending_session_uuid di errors (bukan di data)
+        if (e.response!.statusCode == 403 &&
+            errors is Map &&
+            errors['pending_session_uuid'] != null) {
           throw PendingFeedbackException(
             message: errorMessage,
-            pendingSessionUuid: pendingUuid.toString(),
+            pendingSessionUuid: errors['pending_session_uuid'].toString(),
           );
         }
-        
+
+        // Parse validation errors biasa
+        if (errors != null && errors is Map && errors.isNotEmpty) {
+          final firstKey = errors.keys.first;
+          final errorValues = errors[firstKey];
+          if (errorValues is List && errorValues.isNotEmpty) {
+            throw Exception(errorValues.first.toString());
+          } else if (errorValues is String) {
+            throw Exception(errorValues);
+          }
+        }
+
         throw Exception(errorMessage);
       }
       throw Exception('Gagal membuat sesi: ${e.message}');
+    } on PendingFeedbackException {
+      // Rethrow tanpa membungkus — agar cubit dapat menangani dialog rating
+      rethrow;
     } catch (e) {
       throw Exception('Terjadi kesalahan tak terduga: $e');
     }
   }
+
 
   Future<ApiResponse<SessionModel>> requestClose(String uuid) async {
     try {
@@ -118,6 +123,31 @@ class SessionService {
       );
     } catch (e) {
       throw Exception('Gagal meminta penutupan sesi: $e');
+    }
+  }
+
+  Future<ApiResponse<SessionModel>> submitFeedback(
+      String uuid, int rating, String? feedback) async {
+    try {
+      final response = await _dio.post(
+        '/sessions/$uuid/submit-feedback',
+        data: {
+          'rating': rating,
+          if (feedback != null && feedback.isNotEmpty) 'feedback': feedback,
+        },
+      );
+      return ApiResponse<SessionModel>.fromJson(
+        response.data,
+        (json) => SessionModel.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final resData = e.response!.data is Map ? e.response!.data as Map : {};
+        throw Exception(resData['message'] ?? 'Gagal mengirim penilaian');
+      }
+      throw Exception('Gagal mengirim penilaian: ${e.message}');
+    } catch (e) {
+      throw Exception('Terjadi kesalahan: $e');
     }
   }
 

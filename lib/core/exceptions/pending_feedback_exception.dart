@@ -8,5 +8,5 @@ class PendingFeedbackException implements Exception {
   });
 
   @override
-  String toString() => message;
+  String toString() => 'PendingFeedbackException: $message';
 }

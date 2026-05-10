@@ -48,4 +48,14 @@ class SessionActionCubit extends Cubit<SessionActionState> {
       emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'reopen_session'));
     }
   }
+
+  Future<void> submitRating(String uuid, int rating, String? feedback) async {
+    emit(const SessionActionLoading('submit_rating'));
+    try {
+      final session = await _repository.submitFeedback(uuid, rating, feedback);
+      emit(SessionActionSuccess(session, 'Penilaian berhasil dikirim', 'submit_rating'));
+    } catch (e) {
+      emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'submit_rating'));
+    }
+  }
 }

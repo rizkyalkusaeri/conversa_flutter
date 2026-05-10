@@ -50,6 +50,13 @@ class SessionRepository {
     throw Exception(response.message);
   }
 
+  Future<SessionModel> submitFeedback(
+      String uuid, int rating, String? feedback) async {
+    final response = await _service.submitFeedback(uuid, rating, feedback);
+    if (response.success && response.data != null) return response.data!;
+    throw Exception(response.message);
+  }
+
   Future<List<MasterDataModel>> getCategories({String? search}) {
     Map<String, dynamic> params = {};
     if (search != null && search.isNotEmpty) params['search'] = search;
