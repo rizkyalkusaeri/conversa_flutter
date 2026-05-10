@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +42,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   int? _currentUserId;
   bool _isSearching = false;
+  bool _isExternalPickerOpen =
+      false; // Cegah reload saat kembali dari FilePicker
   final TextEditingController _searchController = TextEditingController();
 
   // Subscription untuk session updated dari MainPage via EventBus
@@ -62,6 +65,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      // Abaikan jika kembali dari FilePicker/picker eksternal (bukan dari background app)
+      if (_isExternalPickerOpen) {
+        _isExternalPickerOpen = false;
+        return;
+      }
       debugPrint('ChatDetailPage resumed — reloading chats & session...');
       context.read<ChatDetailCubit>().loadInitialChats();
       context.read<ChatDetailCubit>().reloadSession();
@@ -158,16 +166,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Gambar'),
-              onTap: () async {
-                final cubit = context.read<ChatDetailCubit>();
+              onTap: () {
                 Navigator.pop(ctx);
-                final picker = ImagePicker();
-                final List<XFile> images = await picker.pickMultiImage();
-                if (images.isNotEmpty) {
-                  for (var image in images) {
-                    cubit.sendMessage("", image);
-                  }
-                }
+                _pickGalleryImage(context);
               },
             ),
             ListTile(
@@ -186,13 +187,33 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               title: const Text('Dokumen'),
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(ctx);
+                _isExternalPickerOpen =
+                    true; // Set flag sebelum FilePicker dibuka
                 FilePickerResult? result = await FilePicker.pickFiles(
-                  allowMultiple: true,
+                  allowMultiple: false,
                 );
+                _isExternalPickerOpen = false; // Reset flag setelah kembali
                 if (result != null) {
                   for (var file in result.files) {
                     if (file.path != null) {
+                      // Validasi ukuran file sebelum upload
+                      final fileSize = await File(file.path!).length();
+                      if (fileSize > 20 * 1024 * 1024) {
+                        final sizeMB = (fileSize / (1024 * 1024))
+                            .toStringAsFixed(1);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'File terlalu besar ($sizeMB MB). Maksimal 20MB.',
+                            ),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                        return;
+                      }
                       cubit.sendMessage("", XFile(file.path!, name: file.name));
                     }
                   }
@@ -252,6 +273,32 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       } else if (result == false) {
         // Retake
         _takePhoto();
+      }
+    }
+  }
+
+  Future<void> _pickGalleryImage(BuildContext context) async {
+    final cubit = context.read<ChatDetailCubit>();
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      if (!mounted) return;
+
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => ImagePreviewDialog(
+          imagePath: image.path,
+          onSend: () => Navigator.pop(ctx, true),
+          onRetake: () => Navigator.pop(ctx, false),
+        ),
+      );
+
+      if (result == true) {
+        cubit.sendMessage("", image);
+      } else if (result == false) {
+        // Retake / Pick again
+        _pickGalleryImage(context);
       }
     }
   }
@@ -340,9 +387,24 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           horizontal: 16,
                           vertical: 8,
                         ),
-                        itemCount: chats.length + (state.hasReachedMax ? 0 : 1),
+                        // +1 for uploading bubble (only when uploading a file), +1 for load-more spinner
+                        itemCount:
+                            chats.length +
+                            (state.isUploadingAttachment ? 1 : 0) +
+                            (state.hasReachedMax ? 0 : 1),
                         itemBuilder: (context, index) {
-                          if (index == chats.length) {
+                          // Uploading bubble — at top (index 0 since list is reversed)
+                          if (state.isUploadingAttachment && index == 0) {
+                            return _buildUploadingBubble();
+                          }
+
+                          // Offset index when uploading bubble is shown
+                          final adjustedIndex = state.isUploadingAttachment
+                              ? index - 1
+                              : index;
+
+                          // Load-more spinner at bottom
+                          if (adjustedIndex == chats.length) {
                             return const Padding(
                               padding: EdgeInsets.all(16.0),
                               child: Center(
@@ -353,7 +415,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                             );
                           }
 
-                          final chat = chats[index];
+                          final chat = chats[adjustedIndex];
                           final isMe = chat.senderId == _currentUserId;
 
                           return _buildMessageBubble(chat, isMe);
@@ -369,6 +431,49 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             _buildMessageComposer(),
           ],
         ),
+      ),
+    );
+  }
+
+  // Bubble sementara yang muncul di chat list saat file sedang diunggah
+  Widget _buildUploadingBubble() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Mengunggah...',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -857,91 +962,102 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           );
         }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => _pickAttachment(context),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add, color: Colors.grey, size: 22),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _msgController,
-                          decoration: const InputDecoration(
-                            hintText: "Type a message...",
-                            hintStyle: TextStyle(color: Colors.grey),
-                            border: InputBorder.none,
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
-                          maxLines: null,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.emoji_emotions_outlined,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              BlocBuilder<ChatDetailCubit, ChatDetailState>(
-                builder: (context, state) {
-                  bool isSubmitting = false;
-                  if (state is ChatDetailLoaded) {
-                    isSubmitting = state.isSubmitting;
-                  }
-
-                  return GestureDetector(
-                    onTap: isSubmitting ? null : _sendMessage,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _pickAttachment(context),
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: Colors.grey.shade200,
                         shape: BoxShape.circle,
                       ),
-                      child: isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.send,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.grey,
+                        size: 22,
+                      ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _msgController,
+                              decoration: const InputDecoration(
+                                hintText: "Type a message...",
+                                hintStyle: TextStyle(color: Colors.grey),
+                                border: InputBorder.none,
+                              ),
+                              textCapitalization: TextCapitalization.sentences,
+                              maxLines: null,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.emoji_emotions_outlined,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  BlocBuilder<ChatDetailCubit, ChatDetailState>(
+                    builder: (context, state) {
+                      bool isSubmitting = false;
+                      if (state is ChatDetailLoaded) {
+                        isSubmitting = state.isSubmitting;
+                      }
+
+                      return GestureDetector(
+                        onTap: isSubmitting ? null : _sendMessage,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.send,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );

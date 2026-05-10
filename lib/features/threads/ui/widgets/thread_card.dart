@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_config.dart';
@@ -119,49 +120,62 @@ class ThreadCard extends StatelessWidget {
               ),
               if (thread.visibleToLevels.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Builder(builder: (context) {
-                  const maxDisplay = 3;
-                  final displayList = thread.visibleToLevels.take(maxDisplay).toList();
-                  final remainingCount = thread.visibleToLevels.length - maxDisplay;
+                Builder(
+                  builder: (context) {
+                    const maxDisplay = 3;
+                    final displayList = thread.visibleToLevels
+                        .take(maxDisplay)
+                        .toList();
+                    final remainingCount =
+                        thread.visibleToLevels.length - maxDisplay;
 
-                  return Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: [
-                      ...displayList.map((level) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha(20),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          level,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      )),
-                      if (remainingCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '+$remainingCount lainnya',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade600,
+                    return Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        ...displayList.map(
+                          (level) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withAlpha(20),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              level,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                         ),
-                    ],
-                  );
-                }),
+                        if (remainingCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '+$remainingCount lainnya',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ],
           ),
@@ -193,7 +207,6 @@ class ThreadCard extends StatelessWidget {
       ],
     );
   }
-
 
   Widget _buildAttachmentGrid() {
     final images = _imageAttachments;
@@ -253,12 +266,12 @@ class ThreadCard extends StatelessWidget {
 
   Widget _buildNetworkImage(String relativeUrl, {double? height}) {
     final fullUrl = '${ApiConfig.imageUrl}$relativeUrl';
-    return Image.network(
-      fullUrl,
+    return CachedNetworkImage(
+      imageUrl: fullUrl,
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
+      errorWidget: (_, _, _) => Container(
         height: height,
         color: Colors.grey.shade200,
         child: const Center(

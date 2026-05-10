@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
 import 'create_session_state.dart';
 
 class CreateSessionCubit extends Cubit<CreateSessionState> {
@@ -119,6 +120,12 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       try {
         final session = await _repository.createSession(data);
         emit(CreateSessionSuccess(session));
+      } on PendingFeedbackException catch (e) {
+        emit(CreateSessionPendingFeedback(
+          message: e.message,
+          pendingSessionUuid: e.pendingSessionUuid,
+        ));
+        if (_lastFormState != null) emit(_lastFormState!);
       } catch (e) {
         emit(CreateSessionError(e.toString().replaceFirst('Exception: ', ''), isDuringSubmit: true));
         // Kembalikan form state agar User dapat mencoba lagi

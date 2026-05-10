@@ -67,3 +67,18 @@ class ThreadDetailCommentPosting extends ThreadDetailState {
   @override
   List<Object?> get props => [thread, comments];
 }
+
+class ThreadDetailCommentError extends ThreadDetailState {
+  final ThreadModel thread;
+  final List<CommentModel> comments;
+  final String errorMessage;
+
+  const ThreadDetailCommentError({
+    required this.thread,
+    required this.comments,
+    required this.errorMessage,
+  });
+
+  @override
+  List<Object?> get props => [thread, comments, errorMessage];
+}

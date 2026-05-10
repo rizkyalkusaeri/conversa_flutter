@@ -65,23 +65,31 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   Future<void> sendMessage(String text, XFile? attachment) async {
     if (state is ChatDetailLoaded) {
       final currentState = state as ChatDetailLoaded;
-      
-      emit(currentState.copyWith(isSubmitting: true, submitError: null));
+
+      emit(currentState.copyWith(
+        isSubmitting: true,
+        isUploadingAttachment: attachment != null,
+        submitError: null,
+      ));
 
       try {
-        final newMessage = await _repository.sendChat(initialSession.id, text, attachment);
-        
+        final newMessage = await _repository.sendChat(
+            initialSession.id, text, attachment);
+
         // Sisipkan pesan baru ke paling atas daftar (index 0 karena riwayat reverse scroll)
         final updatedChats = List.of(currentState.chats)..insert(0, newMessage);
-        
+
         emit(currentState.copyWith(
           isSubmitting: false,
+          isUploadingAttachment: false,
           chats: updatedChats,
         ));
       } catch (e) {
         emit(currentState.copyWith(
           isSubmitting: false,
+          isUploadingAttachment: false,
           submitError: e.toString().replaceFirst('Exception: ', ''),
+          submitErrorTimestamp: DateTime.now().millisecondsSinceEpoch,
         ));
       }
     }

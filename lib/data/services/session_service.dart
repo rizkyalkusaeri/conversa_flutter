@@ -4,6 +4,7 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
 
 class SessionService {
   final Dio _dio = DioClient.getInstance;
@@ -90,6 +91,14 @@ class SessionService {
               errorMessage = errorValues;
             }
           }
+        }
+        
+        final pendingUuid = data['data']?['pending_session_uuid'];
+        if (e.response!.statusCode == 403 && pendingUuid != null) {
+          throw PendingFeedbackException(
+            message: errorMessage,
+            pendingSessionUuid: pendingUuid.toString(),
+          );
         }
         
         throw Exception(errorMessage);

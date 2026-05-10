@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
+import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
 import 'create_thread_state.dart';
 
 class CreateThreadCubit extends Cubit<CreateThreadState> {
@@ -31,6 +32,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
       if (attachments != null && attachments.isNotEmpty) {
         final files = <MultipartFile>[];
         for (final file in attachments) {
+          await FileValidator.validateSize(file.path);
           files.add(await MultipartFile.fromFile(
             file.path,
             filename: file.path.split(Platform.pathSeparator).last,
@@ -85,6 +87,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
       if (newAttachments != null && newAttachments.isNotEmpty) {
         final files = <MultipartFile>[];
         for (final file in newAttachments) {
+          await FileValidator.validateSize(file.path);
           files.add(await MultipartFile.fromFile(
             file.path,
             filename: file.path.split(Platform.pathSeparator).last,

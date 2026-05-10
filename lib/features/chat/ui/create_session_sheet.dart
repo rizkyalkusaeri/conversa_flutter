@@ -6,8 +6,12 @@ import '../../../core/constants/app_colors.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/form_label.dart';
 import '../../../core/widgets/form_text_field.dart';
+import '../../../core/widgets/form_label.dart';
+import '../../chat/cubit/chat_detail_cubit.dart';
+import '../../chat/ui/chat_detail_page.dart';
+import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
+import '../cubit/session_action_cubit.dart';
 
 class CreateSessionSheet extends StatefulWidget {
   const CreateSessionSheet({super.key});
@@ -80,6 +84,68 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
     ).showSnackBar(SnackBar(content: Text(text), backgroundColor: Colors.red));
   }
 
+  void _showPendingFeedbackDialog(BuildContext context, String message, String uuid) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.star_rate_rounded, color: Colors.amber, size: 48),
+        title: const Text(
+          'Penilaian Diperlukan',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Nanti', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);    // Tutup dialog
+              Navigator.pop(context); // Tutup create sheet
+              
+              try {
+                // Navigate ke sesi pending
+                final session = await SessionService().getSessionByUuid(uuid);
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MultiBlocProvider(
+                        providers: [
+                          BlocProvider(create: (_) => ChatDetailCubit(initialSession: session)..loadInitialChats()),
+                          BlocProvider(create: (_) => SessionActionCubit()),
+                        ],
+                        child: ChatDetailPage(session: session),
+                      ),
+                    ),
+                  );
+                }
+              } catch (_) {
+                // Ignore jika gagal memuat sesi
+              }
+            },
+            child: const Text('Beri Penilaian Sekarang'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<CreateSessionCubit, CreateSessionState>(
@@ -97,6 +163,12 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
           setState(() {
             _submitError = state.message;
           });
+        } else if (state is CreateSessionPendingFeedback) {
+          _showPendingFeedbackDialog(
+            context,
+            state.message,
+            state.pendingSessionUuid,
+          );
         }
       },
       child: Container(

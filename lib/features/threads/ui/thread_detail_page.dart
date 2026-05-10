@@ -101,7 +101,22 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           ),
           centerTitle: true,
         ),
-        body: BlocBuilder<ThreadDetailCubit, ThreadDetailState>(
+        body: BlocConsumer<ThreadDetailCubit, ThreadDetailState>(
+          listener: (context, state) {
+            if (state is ThreadDetailCommentError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage),
+                  backgroundColor: AppColors.error,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+              context.read<ThreadDetailCubit>().restoreLoadedState(
+                state.thread,
+                state.comments,
+              );
+            }
+          },
           builder: (context, state) {
             if (state is ThreadDetailLoading) {
               return const Center(

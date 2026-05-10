@@ -140,6 +140,17 @@ class ProfilePage extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            user.location ?? 'Pusat (HO)',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
       ],
     );
   }
@@ -154,15 +165,6 @@ class ProfilePage extends StatelessWidget {
             label: 'Jabatan / Level',
             value: user.level ?? 'Belum Diatur',
             iconColor: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildDetailBox(
-            icon: Icons.location_on_outlined,
-            label: 'Lokasi Kerja',
-            value: user.location ?? 'Pusat (HO)',
-            iconColor: AppColors.success,
           ),
         ),
         const SizedBox(width: 16),

@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
+import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
+import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
 import 'thread_detail_state.dart';
 
 class ThreadDetailCubit extends Cubit<ThreadDetailState> {
@@ -127,6 +129,7 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
 
         if (attachments != null && attachments.isNotEmpty) {
           for (final file in attachments) {
+            await FileValidator.validateSize(file.path);
             formData.files.add(
               MapEntry(
                 'attachments[]',
@@ -148,10 +151,20 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
         emit(ThreadDetailLoaded(thread: thread));
         await loadComments(threadUuid, refresh: true);
       } catch (e) {
-        // Restore to loaded state
-        emit(currentState);
+        // Report error to UI
+        emit(
+          ThreadDetailCommentError(
+            thread: currentState.thread,
+            comments: currentState.comments,
+            errorMessage: e.toString().replaceFirst('Exception: ', ''),
+          ),
+        );
       }
     }
+  }
+
+  void restoreLoadedState(ThreadModel thread, List<CommentModel> comments) {
+    emit(ThreadDetailLoaded(thread: thread, comments: comments));
   }
 
   /// Recursively toggle like on a comment by id

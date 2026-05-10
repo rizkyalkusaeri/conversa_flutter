@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:mime/mime.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
 import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
 
 class ChatService {
   final Dio _dio = DioClient.getInstance;
@@ -70,11 +73,39 @@ class ChatService {
       }
       
       if (attachment != null) {
-        final bytes = await attachment.readAsBytes();
-        formData.files.add(MapEntry(
-          'attachment',
-          MultipartFile.fromBytes(bytes, filename: attachment.name),
-        ));
+        await FileValidator.validateXFile(attachment);
+
+        final String filePath = attachment.path;
+        final String fileName = attachment.name.isNotEmpty
+            ? attachment.name
+            : filePath.split('/').last;
+        final String? mimeType = lookupMimeType(fileName);
+
+        MultipartFile multipartFile;
+
+        // Cek apakah path ini adalah file fisik lokal atau content:// URI Android
+        if (filePath.startsWith('/') && await File(filePath).exists()) {
+          // File fisik: gunakan streaming untuk hemat RAM
+          multipartFile = await MultipartFile.fromFile(
+            filePath,
+            filename: fileName,
+            contentType: mimeType != null
+                ? DioMediaType.parse(mimeType)
+                : null,
+          );
+        } else {
+          // Content URI (Android Gallery): baca sebagai bytes
+          final bytes = await attachment.readAsBytes();
+          multipartFile = MultipartFile.fromBytes(
+            bytes,
+            filename: fileName,
+            contentType: mimeType != null
+                ? DioMediaType.parse(mimeType)
+                : null,
+          );
+        }
+
+        formData.files.add(MapEntry('attachment', multipartFile));
       }
 
       final response = await _dio.post('/sessions/$sessionUuid/chats', data: formData);
@@ -108,9 +139,14 @@ class ChatService {
         
         throw Exception(errorMessage);
       }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        throw Exception('Koneksi timeout. Pastikan ukuran file tidak terlalu besar dan koneksi stabil.');
+      }
       throw Exception('Gagal mengirim pesan: ${e.message}');
     } catch (e) {
-      throw Exception('Terjadi kesalahan tak terduga: $e');
+      rethrow;
     }
   }
 }
