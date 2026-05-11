@@ -9,9 +9,11 @@ import '../cubit/create_thread_cubit.dart';
 import '../cubit/create_thread_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
-import 'package:fifgroup_android_ticketing/core/network/dio_client.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
+import '../../chat/ui/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/form_label.dart';
 import 'widgets/thread_target_selector.dart';
 
 class CreateThreadPage extends StatefulWidget {
@@ -33,17 +35,16 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   // User spesifik yang ditarget — kosong = semua user jabatan terpilih
   List<int> _selectedUserIds = [];
 
-  List<MasterDataModel> _categories = [];
-  List<MasterDataModel> _subCategories = [];
-  List<MasterDataModel> _topics = [];
-  
   int? _selectedCategoryId;
-  int? _selectedSubCategoryId;
-  int? _selectedTopicId;
+  MasterDataModel? _selectedCategoryModel;
 
-  bool _isLoadingCategories = false;
-  bool _isLoadingSubCategories = false;
-  bool _isLoadingTopics = false;
+  int? _selectedSubCategoryId;
+  MasterDataModel? _selectedSubCategoryModel;
+
+  int? _selectedTopicId;
+  MasterDataModel? _selectedTopicModel;
+
+  final SessionRepository _sessionRepo = SessionRepository();
 
   bool get _isEditMode => widget.editThread != null;
 
@@ -55,68 +56,13 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
       _selectedLevelIds = List.from(widget.editThread!.selectedLevelIds);
       _selectedUserIds = List.from(widget.editThread!.selectedUserIds);
       _selectedTopicId = widget.editThread!.topicId;
-    }
-    _loadCategories();
-  }
 
-  Future<void> _loadCategories() async {
-    setState(() => _isLoadingCategories = true);
-    try {
-      final response = await DioClient.getInstance.get('/master/categories', queryParameters: {'limit': 100});
-      final items = response.data['data'] as List<dynamic>? ?? [];
-      setState(() {
-        _categories = items.map((e) => MasterDataModel.fromJson(e, 'category_name')).toList();
-      });
-    } catch (e) {
-      debugPrint('Gagal load categories: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingCategories = false);
-    }
-  }
-
-  Future<void> _loadSubCategories(int categoryId) async {
-    setState(() {
-      _isLoadingSubCategories = true;
-      _subCategories = [];
-      _selectedSubCategoryId = null;
-      _topics = [];
-      _selectedTopicId = null;
-    });
-    try {
-      final response = await DioClient.getInstance.get(
-        '/master/sub-categories',
-        queryParameters: {'category_id': categoryId, 'limit': 100},
-      );
-      final items = response.data['data'] as List<dynamic>? ?? [];
-      setState(() {
-        _subCategories = items.map((e) => MasterDataModel.fromJson(e, 'sub_category_name')).toList();
-      });
-    } catch (e) {
-      debugPrint('Gagal load sub-categories: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingSubCategories = false);
-    }
-  }
-
-  Future<void> _loadTopics(int subCategoryId) async {
-    setState(() {
-      _isLoadingTopics = true;
-      _topics = [];
-      _selectedTopicId = null;
-    });
-    try {
-      final response = await DioClient.getInstance.get(
-        '/master/topics',
-        queryParameters: {'sub_category_id': subCategoryId, 'limit': 100},
-      );
-      final items = response.data['data'] as List<dynamic>? ?? [];
-      setState(() {
-        _topics = items.map((e) => MasterDataModel.fromJson(e, 'topic_name')).toList();
-      });
-    } catch (e) {
-      debugPrint('Gagal load topics: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingTopics = false);
+      if (_selectedTopicId != null) {
+        _selectedTopicModel = MasterDataModel(
+          id: _selectedTopicId!,
+          text: widget.editThread!.topicName ?? 'Topik Terpilih',
+        );
+      }
     }
   }
 
@@ -232,54 +178,73 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                   ),
 
                   // ─── Cascading Selectors ──────────────────────────────────
-                  if (_isLoadingCategories)
-                    const _LoadingPlaceholder(label: 'Memuat kategori...')
-                  else
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildDropdown(
-                        label: 'Kategori',
-                        value: _selectedCategoryId,
-                        items: _categories,
-                        onChanged: (val) {
-                          setState(() => _selectedCategoryId = val);
-                          if (val != null) _loadSubCategories(val);
-                        },
+                  const FormLabel(text: "KATEGORI"),
+                  SearchableDropdownField(
+                    hintText: "Pilih Kategori",
+                    selectedItem: _selectedCategoryModel,
+                    onSearch: (keyword) =>
+                        _sessionRepo.getCategories(search: keyword),
+                    onChanged: (item) {
+                      if (item != null && item.id != _selectedCategoryId) {
+                        setState(() {
+                          _selectedCategoryId = item.id;
+                          _selectedCategoryModel = item;
+                          _selectedSubCategoryId = null;
+                          _selectedSubCategoryModel = null;
+                          _selectedTopicId = null;
+                          _selectedTopicModel = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_selectedCategoryId != null) ...[
+                    const FormLabel(text: "SUB-KATEGORI"),
+                    SearchableDropdownField(
+                      hintText: "Pilih Sub-Kategori",
+                      selectedItem: _selectedSubCategoryModel,
+                      onSearch: (keyword) => _sessionRepo.getSubCategories(
+                        _selectedCategoryId!,
+                        search: keyword,
                       ),
+                      onChanged: (item) {
+                        if (item != null && item.id != _selectedSubCategoryId) {
+                          setState(() {
+                            _selectedSubCategoryId = item.id;
+                            _selectedSubCategoryModel = item;
+                            _selectedTopicId = null;
+                            _selectedTopicModel = null;
+                          });
+                        }
+                      },
                     ),
+                    const SizedBox(height: 16),
+                  ],
 
-                  if (_selectedCategoryId != null)
-                    if (_isLoadingSubCategories)
-                      const _LoadingPlaceholder(label: 'Memuat sub kategori...')
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildDropdown(
-                          label: 'Sub Kategori',
-                          value: _selectedSubCategoryId,
-                          items: _subCategories,
-                          onChanged: (val) {
-                            setState(() => _selectedSubCategoryId = val);
-                            if (val != null) _loadTopics(val);
-                          },
-                        ),
+                  if (_selectedSubCategoryId != null) ...[
+                    const FormLabel(text: "TOPIK", optional: true),
+                    SearchableDropdownField(
+                      hintText: "Pilih Topik",
+                      selectedItem: _selectedTopicModel,
+                      onSearch: (keyword) => _sessionRepo.getTopics(
+                        _selectedSubCategoryId!,
+                        search: keyword,
                       ),
-
-                  if (_selectedSubCategoryId != null)
-                    if (_isLoadingTopics)
-                      const _LoadingPlaceholder(label: 'Memuat topik...')
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _buildDropdown(
-                          label: 'Topik (Opsional)',
-                          value: _selectedTopicId,
-                          items: _topics,
-                          onChanged: (val) => setState(() => _selectedTopicId = val),
-                          allowNull: true,
-                          nullLabel: 'Tanpa Topik',
-                        ),
-                      ),
+                      onChanged: (item) {
+                        setState(() {
+                          if (item != null) {
+                            _selectedTopicId = item.id;
+                            _selectedTopicModel = item;
+                          } else {
+                            _selectedTopicId = null;
+                            _selectedTopicModel = null;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   // ────────────────────────────────────────────────────────
 
                   // ─── Jabatan & User Spesifik selector ───────────────────
@@ -293,8 +258,8 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                       setState(() => _selectedUserIds = ids);
                     },
                   ),
-                  // ────────────────────────────────────────────────────────
 
+                  // ────────────────────────────────────────────────────────
                   const SizedBox(height: 16),
 
                   // Existing attachments (edit mode)
@@ -451,51 +416,50 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                           child: Image.file(file, fit: BoxFit.cover),
                         )
                       : _isVideoFile(file.path)
-                          ? Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(20),
-                                borderRadius: BorderRadius.circular(10),
+                      ? Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.videocam, color: AppColors.primary),
+                              SizedBox(height: 4),
+                              Text(
+                                'Video',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
                               ),
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.videocam,
-                                      color: AppColors.primary),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Video',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
+                            ],
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.attach_file,
+                                size: 16,
+                                color: Colors.grey.shade500,
                               ),
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                              const SizedBox(width: 4),
+                              Text(
+                                file.path.split(Platform.pathSeparator).last,
+                                style: const TextStyle(fontSize: 12),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.attach_file,
-                                    size: 16,
-                                    color: Colors.grey.shade500,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    file.path.split(Platform.pathSeparator).last,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            ],
+                          ),
+                        ),
                 ),
                 Positioned(
                   top: 4,
@@ -565,51 +529,50 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Wrap(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-                  title: const Text('Ambil Foto'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _takePhoto();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.videocam, color: AppColors.primary),
-                  title: const Text('Ambil Video'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _takeVideo();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.perm_media_outlined,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Galeri Media (Foto & Video)'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickMedia();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.insert_drive_file,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Dokumen'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickFiles();
-                  },
-                ),
-              ],
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Ambil Foto'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takePhoto();
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takeVideo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.perm_media_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeri Media (Foto & Video)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickMedia();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.insert_drive_file,
+                color: AppColors.primary,
+              ),
+              title: const Text('Dokumen'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickFiles();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -647,12 +610,11 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
 
       final result = await showDialog<bool>(
         context: context,
-        builder:
-            (ctx) => ImagePreviewDialog(
-              imagePath: image.path,
-              onSend: () => Navigator.pop(ctx, true),
-              onRetake: () => Navigator.pop(ctx, false),
-            ),
+        builder: (ctx) => ImagePreviewDialog(
+          imagePath: image.path,
+          onSend: () => Navigator.pop(ctx, true),
+          onRetake: () => Navigator.pop(ctx, false),
+        ),
       );
 
       if (result == true) {
@@ -732,8 +694,9 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
         uuid: widget.editThread!.id,
         content: content,
         newAttachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
-        deleteAttachmentIds:
-            _deleteAttachmentIds.isNotEmpty ? _deleteAttachmentIds : null,
+        deleteAttachmentIds: _deleteAttachmentIds.isNotEmpty
+            ? _deleteAttachmentIds
+            : null,
         levelIds: _selectedLevelIds,
         visibleUserIds: _selectedUserIds,
         topicId: _selectedTopicId,
@@ -758,73 +721,5 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   bool _isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required int? value,
-    required List<MasterDataModel> items,
-    required ValueChanged<int?> onChanged,
-    bool allowNull = false,
-    String nullLabel = 'Pilih...',
-  }) {
-    return DropdownButtonFormField<int>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
-      items: [
-        if (allowNull || value == null)
-          DropdownMenuItem<int>(
-            value: null,
-            child: Text(
-              nullLabel,
-              style: TextStyle(color: Colors.grey.shade500),
-            ),
-          ),
-        ...items.map(
-          (t) => DropdownMenuItem<int>(value: t.id, child: Text(t.text)),
-        ),
-      ],
-      onChanged: onChanged,
-    );
-  }
-}
-
-class _LoadingPlaceholder extends StatelessWidget {
-  final String label;
-  const _LoadingPlaceholder({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
   }
 }
