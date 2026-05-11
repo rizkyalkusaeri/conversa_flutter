@@ -9,7 +9,9 @@ import '../cubit/create_thread_cubit.dart';
 import '../cubit/create_thread_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
+import 'package:fifgroup_android_ticketing/core/network/dio_client.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 import 'widgets/thread_target_selector.dart';
 
 class CreateThreadPage extends StatefulWidget {
@@ -31,6 +33,18 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   // User spesifik yang ditarget — kosong = semua user jabatan terpilih
   List<int> _selectedUserIds = [];
 
+  List<MasterDataModel> _categories = [];
+  List<MasterDataModel> _subCategories = [];
+  List<MasterDataModel> _topics = [];
+  
+  int? _selectedCategoryId;
+  int? _selectedSubCategoryId;
+  int? _selectedTopicId;
+
+  bool _isLoadingCategories = false;
+  bool _isLoadingSubCategories = false;
+  bool _isLoadingTopics = false;
+
   bool get _isEditMode => widget.editThread != null;
 
   @override
@@ -38,9 +52,71 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
     super.initState();
     if (_isEditMode) {
       _contentController.text = widget.editThread!.content;
-      // Pre-populate jabatan dan user yang sudah dipilih sebelumnya (mode edit)
       _selectedLevelIds = List.from(widget.editThread!.selectedLevelIds);
       _selectedUserIds = List.from(widget.editThread!.selectedUserIds);
+      _selectedTopicId = widget.editThread!.topicId;
+    }
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _isLoadingCategories = true);
+    try {
+      final response = await DioClient.getInstance.get('/master/categories', queryParameters: {'limit': 100});
+      final items = response.data['data'] as List<dynamic>? ?? [];
+      setState(() {
+        _categories = items.map((e) => MasterDataModel.fromJson(e, 'category_name')).toList();
+      });
+    } catch (e) {
+      debugPrint('Gagal load categories: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingCategories = false);
+    }
+  }
+
+  Future<void> _loadSubCategories(int categoryId) async {
+    setState(() {
+      _isLoadingSubCategories = true;
+      _subCategories = [];
+      _selectedSubCategoryId = null;
+      _topics = [];
+      _selectedTopicId = null;
+    });
+    try {
+      final response = await DioClient.getInstance.get(
+        '/master/sub-categories',
+        queryParameters: {'category_id': categoryId, 'limit': 100},
+      );
+      final items = response.data['data'] as List<dynamic>? ?? [];
+      setState(() {
+        _subCategories = items.map((e) => MasterDataModel.fromJson(e, 'sub_category_name')).toList();
+      });
+    } catch (e) {
+      debugPrint('Gagal load sub-categories: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingSubCategories = false);
+    }
+  }
+
+  Future<void> _loadTopics(int subCategoryId) async {
+    setState(() {
+      _isLoadingTopics = true;
+      _topics = [];
+      _selectedTopicId = null;
+    });
+    try {
+      final response = await DioClient.getInstance.get(
+        '/master/topics',
+        queryParameters: {'sub_category_id': subCategoryId, 'limit': 100},
+      );
+      final items = response.data['data'] as List<dynamic>? ?? [];
+      setState(() {
+        _topics = items.map((e) => MasterDataModel.fromJson(e, 'topic_name')).toList();
+      });
+    } catch (e) {
+      debugPrint('Gagal load topics: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingTopics = false);
     }
   }
 
@@ -154,6 +230,57 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                       height: 1.5,
                     ),
                   ),
+
+                  // ─── Cascading Selectors ──────────────────────────────────
+                  if (_isLoadingCategories)
+                    const _LoadingPlaceholder(label: 'Memuat kategori...')
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDropdown(
+                        label: 'Kategori',
+                        value: _selectedCategoryId,
+                        items: _categories,
+                        onChanged: (val) {
+                          setState(() => _selectedCategoryId = val);
+                          if (val != null) _loadSubCategories(val);
+                        },
+                      ),
+                    ),
+
+                  if (_selectedCategoryId != null)
+                    if (_isLoadingSubCategories)
+                      const _LoadingPlaceholder(label: 'Memuat sub kategori...')
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildDropdown(
+                          label: 'Sub Kategori',
+                          value: _selectedSubCategoryId,
+                          items: _subCategories,
+                          onChanged: (val) {
+                            setState(() => _selectedSubCategoryId = val);
+                            if (val != null) _loadTopics(val);
+                          },
+                        ),
+                      ),
+
+                  if (_selectedSubCategoryId != null)
+                    if (_isLoadingTopics)
+                      const _LoadingPlaceholder(label: 'Memuat topik...')
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildDropdown(
+                          label: 'Topik (Opsional)',
+                          value: _selectedTopicId,
+                          items: _topics,
+                          onChanged: (val) => setState(() => _selectedTopicId = val),
+                          allowNull: true,
+                          nullLabel: 'Tanpa Topik',
+                        ),
+                      ),
+                  // ────────────────────────────────────────────────────────
 
                   // ─── Jabatan & User Spesifik selector ───────────────────
                   ThreadTargetSelector(
@@ -323,27 +450,52 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                           borderRadius: BorderRadius.circular(10),
                           child: Image.file(file, fit: BoxFit.cover),
                         )
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.attach_file,
-                                size: 16,
-                                color: Colors.grey.shade500,
+                      : _isVideoFile(file.path)
+                          ? Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withAlpha(20),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                file.path.split(Platform.pathSeparator).last,
-                                style: const TextStyle(fontSize: 12),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.videocam,
+                                      color: AppColors.primary),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Video',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.attach_file,
+                                    size: 16,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    file.path.split(Platform.pathSeparator).last,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
                 ),
                 Positioned(
                   top: 4,
@@ -418,25 +570,30 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
             child: Wrap(
               children: [
                 ListTile(
-                  leading: const Icon(
-                    Icons.camera_alt,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Kamera'),
+                  leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+                  title: const Text('Ambil Foto'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _takePhoto();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(
-                    Icons.photo_library,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Galeri Gambar'),
+                  leading: const Icon(Icons.videocam, color: AppColors.primary),
+                  title: const Text('Ambil Video'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _pickImages();
+                    _takeVideo();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.perm_media_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Galeri Media (Foto & Video)'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickMedia();
                   },
                 ),
                 ListTile(
@@ -508,13 +665,27 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
     }
   }
 
-  Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage(imageQuality: 80);
+  Future<void> _takeVideo() async {
+    final status = await Permission.camera.status;
+    if (status.isDenied) await Permission.camera.request();
+    if (!status.isGranted) return;
 
-    if (images.isNotEmpty) {
+    final picker = ImagePicker();
+    final video = await picker.pickVideo(source: ImageSource.camera);
+    if (video != null) {
       setState(() {
-        _selectedFiles.addAll(images.map((xfile) => File(xfile.path)));
+        _selectedFiles.add(File(video.path));
+      });
+    }
+  }
+
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final media = await picker.pickMultipleMedia();
+
+    if (media.isNotEmpty) {
+      setState(() {
+        _selectedFiles.addAll(media.map((xfile) => File(xfile.path)));
       });
     }
   }
@@ -565,6 +736,8 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
             _deleteAttachmentIds.isNotEmpty ? _deleteAttachmentIds : null,
         levelIds: _selectedLevelIds,
         visibleUserIds: _selectedUserIds,
+        topicId: _selectedTopicId,
+        clearTopic: _selectedTopicId == null,
       );
     } else {
       context.read<CreateThreadCubit>().createThread(
@@ -572,12 +745,86 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
         attachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
         levelIds: _selectedLevelIds,
         visibleUserIds: _selectedUserIds,
+        topicId: _selectedTopicId,
       );
     }
+  }
+
+  bool _isVideoFile(String path) {
+    final ext = path.toLowerCase().split('.').last;
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext);
   }
 
   bool _isImageFile(String path) {
     final ext = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required int? value,
+    required List<MasterDataModel> items,
+    required ValueChanged<int?> onChanged,
+    bool allowNull = false,
+    String nullLabel = 'Pilih...',
+  }) {
+    return DropdownButtonFormField<int>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      items: [
+        if (allowNull || value == null)
+          DropdownMenuItem<int>(
+            value: null,
+            child: Text(
+              nullLabel,
+              style: TextStyle(color: Colors.grey.shade500),
+            ),
+          ),
+        ...items.map(
+          (t) => DropdownMenuItem<int>(value: t.id, child: Text(t.text)),
+        ),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _LoadingPlaceholder extends StatelessWidget {
+  final String label;
+  const _LoadingPlaceholder({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
   }
 }

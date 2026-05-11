@@ -1,6 +1,8 @@
+import 'package:fifgroup_android_ticketing/core/constants/app_colors.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/services/fcm_service.dart';
@@ -15,6 +17,12 @@ import 'features/main/ui/main_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Kunci orientasi ke portrait saja
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Inisialisasi Firebase
   await Firebase.initializeApp();
@@ -46,9 +54,7 @@ class MyApp extends StatelessWidget {
                 AppAuthCubit(authRepository: context.read<AuthRepository>())
                   ..checkAuthStatus(), // Langsung cek saat aplikasi hidup
           ),
-          BlocProvider(
-            create: (context) => ActiveSessionCountCubit(),
-          ),
+          BlocProvider(create: (context) => ActiveSessionCountCubit()),
         ],
         child: MaterialApp(
           navigatorKey: NavigationService.navigatorKey,
@@ -59,8 +65,9 @@ class MyApp extends StatelessWidget {
             listener: (context, state) {
               if (state is AppAuthSessionExpired) {
                 // Pastikan tidak ada dialog lain yang terbuka terlebih dahulu
-                NavigationService.navigatorKey.currentState
-                    ?.popUntil((route) => route.isFirst);
+                NavigationService.navigatorKey.currentState?.popUntil(
+                  (route) => route.isFirst,
+                );
 
                 showDialog(
                   context: NavigationService.navigatorKey.currentContext!,
@@ -91,9 +98,7 @@ class MyApp extends StatelessWidget {
                             NavigationService.navigatorKey.currentContext!,
                           ).pop();
                           // Pindah ke LoginPage via cubit
-                          context
-                              .read<AppAuthCubit>()
-                              .goToLogin();
+                          context.read<AppAuthCubit>().goToLogin();
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(160, 44),
@@ -118,6 +123,32 @@ class MyApp extends StatelessWidget {
               if (state is AppAuthSessionExpired) {
                 // Tampilkan LoginPage di background saat dialog muncul
                 return LoginPage();
+              }
+              if (state is AppAuthLoading) {
+                return const Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 24),
+                        Text(
+                          "Sedang keluar...",
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          "Mohon tunggu sebentar",
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               }
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),

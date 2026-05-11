@@ -330,9 +330,9 @@ class ProfilePage extends StatelessWidget {
   Widget _buildLogoutButton(BuildContext context) {
     return InkWell(
       hoverColor: Colors.transparent,
-      onTap: () {
+      onTap: () async {
         // Panggil Global AppAuthCubit logOut
-        context.read<AppAuthCubit>().logOut();
+        await context.read<AppAuthCubit>().logOut();
       },
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

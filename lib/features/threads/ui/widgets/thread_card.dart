@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_config.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/video_attachment_widget.dart';
 
 class ThreadCard extends StatelessWidget {
   final ThreadModel thread;
@@ -58,6 +59,20 @@ class ThreadCard extends StatelessWidget {
               _buildAttachmentGrid(),
             ],
 
+            // Video Attachments
+            if (_videoAttachments.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ..._videoAttachments.map((v) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: VideoAttachmentWidget(
+                    videoUrl: '${ApiConfig.imageUrl}${v.url}',
+                  ),
+                ),
+              )),
+            ],
+
             const SizedBox(height: 12),
 
             // Action bar: Like + Comment
@@ -70,6 +85,9 @@ class ThreadCard extends StatelessWidget {
 
   List<ThreadAttachment> get _imageAttachments =>
       thread.attachments.where((a) => a.isImage).toList();
+
+  List<ThreadAttachment> get _videoAttachments =>
+      thread.attachments.where((a) => a.isVideo).toList();
 
   Widget _buildHeader(BuildContext context) {
     final initials = _getInitials(thread.author.name);
@@ -175,6 +193,34 @@ class ThreadCard extends StatelessWidget {
                       ],
                     );
                   },
+                ),
+              ],
+              if (thread.topicName != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tag, size: 10, color: AppColors.secondary),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '${thread.categoryName} > ${thread.subCategoryName} > ${thread.topicName}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],

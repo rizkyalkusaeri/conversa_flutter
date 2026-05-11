@@ -10,6 +10,8 @@ abstract class AppAuthState extends Equatable {
 
 class AppAuthInitial extends AppAuthState {}
 
+class AppAuthLoading extends AppAuthState {}
+
 class AppAuthAuthenticated extends AppAuthState {
   final UserModel user;
 

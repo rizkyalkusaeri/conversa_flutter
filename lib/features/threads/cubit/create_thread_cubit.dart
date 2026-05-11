@@ -21,6 +21,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     List<File>? attachments,
     List<int>? levelIds,
     List<int>? visibleUserIds,
+    int? topicId,
   }) async {
     emit(CreateThreadLoading());
 
@@ -28,6 +29,10 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
       final map = <String, dynamic>{
         'content': content,
       };
+
+      if (topicId != null) {
+        map['topic_id'] = topicId;
+      }
 
       if (attachments != null && attachments.isNotEmpty) {
         final files = <MultipartFile>[];
@@ -76,6 +81,8 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     List<int>? deleteAttachmentIds,
     List<int>? levelIds,
     List<int>? visibleUserIds,
+    int? topicId,
+    bool clearTopic = false,
   }) async {
     emit(CreateThreadLoading());
 
@@ -83,6 +90,12 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
       final map = <String, dynamic>{
         'content': content,
       };
+
+      if (clearTopic) {
+        map['topic_id'] = null; // Backend expects null to clear
+      } else if (topicId != null) {
+        map['topic_id'] = topicId;
+      }
 
       if (newAttachments != null && newAttachments.isNotEmpty) {
         final files = <MultipartFile>[];

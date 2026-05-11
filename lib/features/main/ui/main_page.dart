@@ -221,7 +221,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // Tampilkan notifikasi untuk pesan dari sesi lain
     final body = messageType == 'TEXT'
         ? (messageContent ?? 'Pesan baru')
-        : '📎 Mengirim lampiran';
+        : (messageType == 'VIDEO' ? '📹 Mengirim video' : '📎 Mengirim lampiran');
 
     NotificationService.showNotification(
       title: '💬 $senderName',

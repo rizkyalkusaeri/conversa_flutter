@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_config.dart';
@@ -243,7 +244,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
   }
 
   Widget _buildAttachment(BuildContext context, ChatMessageModel chat) {
-    if (chat.messageType == 'IMAGE') {
+    if (chat.isImage) {
       return GestureDetector(
         onTap: () {
           Navigator.push(
@@ -263,13 +264,19 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
             height: 150,
             width: double.infinity,
             fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.grey.shade200, height: 150),
+            placeholder: (context, url) =>
+                Container(color: Colors.grey.shade200, height: 150),
           ),
         ),
       );
+    } else if (chat.isVideo) {
+      return VideoAttachmentWidget(
+        videoUrl: ApiConfig.imageUrl + chat.attachmentUrl!,
+      );
     } else {
       return GestureDetector(
-        onTap: () => launchUrl(Uri.parse(ApiConfig.imageUrl + chat.attachmentUrl!)),
+        onTap: () =>
+            launchUrl(Uri.parse(ApiConfig.imageUrl + chat.attachmentUrl!)),
         child: Container(
           padding: const EdgeInsets.all(12),
           color: Colors.grey.withValues(alpha: 0.2),
@@ -278,7 +285,12 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
             children: [
               const Icon(Icons.insert_drive_file, color: AppColors.textDark),
               const SizedBox(width: 8),
-              Flexible(child: Text(chat.attachmentUrl?.split('/').last ?? 'View Document', overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(
+                  chat.attachmentUrl?.split('/').last ?? 'View Document',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),

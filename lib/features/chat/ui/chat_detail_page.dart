@@ -26,6 +26,7 @@ import 'widgets/complete_session_dialog.dart';
 import 'widgets/image_preview_dialog.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final SessionModel session;
@@ -163,21 +164,29 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           children: [
             ListTile(
               leading: const Icon(
-                Icons.photo_library,
+                Icons.perm_media_outlined,
                 color: AppColors.primary,
               ),
-              title: const Text('Galeri Gambar'),
+              title: const Text('Galeri Media (Foto & Video)'),
               onTap: () {
                 Navigator.pop(ctx);
-                _pickGalleryImage(context);
+                _pickGalleryMedia(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Kamera'),
+              title: const Text('Ambil Foto'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takePhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takeVideo();
               },
             ),
             ListTile(
@@ -278,28 +287,77 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     }
   }
 
-  Future<void> _pickGalleryImage(BuildContext context) async {
+  Future<void> _takeVideo() async {
     final cubit = context.read<ChatDetailCubit>();
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final messenger = ScaffoldMessenger.of(context);
 
-    if (image != null) {
+    var status = await Permission.camera.status;
+    if (status.isDenied) status = await Permission.camera.request();
+    if (!status.isGranted) return;
+
+    final picker = ImagePicker();
+    final XFile? video = await picker.pickVideo(source: ImageSource.camera);
+
+    if (video != null) {
+      if (!mounted) return;
+      // Validasi ukuran video
+      final size = await File(video.path).length();
+      if (size > 20 * 1024 * 1024) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Video terlalu besar. Maksimal 20MB.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      cubit.sendMessage("", video);
+    }
+  }
+
+  Future<void> _pickGalleryMedia(BuildContext context) async {
+    final cubit = context.read<ChatDetailCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final picker = ImagePicker();
+    // pickMedia allows both images and videos
+    final XFile? media = await picker.pickMedia();
+
+    if (media != null) {
       if (!mounted) return;
 
-      final result = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => ImagePreviewDialog(
-          imagePath: image.path,
-          onSend: () => Navigator.pop(ctx, true),
-          onRetake: () => Navigator.pop(ctx, false),
-        ),
-      );
+      // Validasi ukuran
+      final size = await File(media.path).length();
+      if (size > 20 * 1024 * 1024) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('File terlalu besar. Maksimal 20MB.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-      if (result == true) {
-        cubit.sendMessage("", image);
-      } else if (result == false) {
-        // Retake / Pick again
-        _pickGalleryImage(context);
+      // Jika gambar, tunjukkan preview dulu
+      final ext = media.path.toLowerCase().split('.').last;
+      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+
+      if (isImage) {
+        final result = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => ImagePreviewDialog(
+            imagePath: media.path,
+            onSend: () => Navigator.pop(ctx, true),
+            onRetake: () => Navigator.pop(ctx, false),
+          ),
+        );
+        if (result == true) {
+          cubit.sendMessage("", media);
+        } else if (result == false) {
+          _pickGalleryMedia(context);
+        }
+      } else {
+        // Video langsung kirim (atau bisa tambah video preview jika mau, tapi kirim langsung cukup)
+        cubit.sendMessage("", media);
       }
     }
   }
@@ -549,7 +607,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  "Session #${session.ticketNumber.substring(0, 8)}",
+                  "Sesi #${session.ticketNumber.substring(0, 8)}",
                   style: const TextStyle(
                     color: AppColors.textDark,
                     fontWeight: FontWeight.bold,
@@ -610,7 +668,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           // Tombol rating jika belum diberi penilaian dan user adalah requester
           if (isRequester && session.rating == null)
             IconButton(
-              icon: const Icon(Icons.star_border_rounded, color: Colors.amber, size: 28),
+              icon: const Icon(
+                Icons.star_border_rounded,
+                color: Colors.amber,
+                size: 28,
+              ),
               tooltip: 'Beri Penilaian',
               onPressed: () async {
                 final result = await showDialog<SessionModel>(
@@ -809,7 +871,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       if (chat.attachmentUrl != null) ...[
                         GestureDetector(
                           onTap: () {
-                            if (chat.messageType == 'IMAGE') {
+                            if (chat.isImage) {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -821,6 +883,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                   ),
                                 ),
                               );
+                            } else if (chat.isVideo) {
+                              // Video Tap action (bisa diisi jika ingin fullscreen player khusus)
                             } else {
                               _openAttachment(
                                 ApiConfig.imageUrl + chat.attachmentUrl!,
@@ -829,7 +893,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           },
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: (chat.messageType == 'IMAGE')
+                            child: chat.isImage
                                 ? Hero(
                                     tag: 'chat_image_${chat.id}',
                                     child: CachedNetworkImage(
@@ -875,6 +939,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                             ),
                                           ),
                                     ),
+                                  )
+                                : chat.isVideo
+                                ? VideoAttachmentWidget(
+                                    videoUrl:
+                                        ApiConfig.imageUrl +
+                                        chat.attachmentUrl!,
                                   )
                                 : Container(
                                     padding: const EdgeInsets.all(12),

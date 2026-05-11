@@ -84,13 +84,21 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
     ).showSnackBar(SnackBar(content: Text(text), backgroundColor: Colors.red));
   }
 
-  void _showPendingFeedbackDialog(BuildContext context, String message, String uuid) {
+  void _showPendingFeedbackDialog(
+    BuildContext context,
+    String message,
+    String uuid,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.star_rate_rounded, color: Colors.amber, size: 48),
+        icon: const Icon(
+          Icons.star_rate_rounded,
+          color: Colors.amber,
+          size: 48,
+        ),
         title: const Text(
           'Penilaian Diperlukan',
           textAlign: TextAlign.center,
@@ -115,9 +123,9 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
               ),
             ),
             onPressed: () async {
-              Navigator.pop(ctx);    // Tutup dialog
+              Navigator.pop(ctx); // Tutup dialog
               Navigator.pop(context); // Tutup create sheet
-              
+
               try {
                 // Navigate ke sesi pending
                 final session = await SessionService().getSessionByUuid(uuid);
@@ -127,7 +135,11 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                     MaterialPageRoute(
                       builder: (_) => MultiBlocProvider(
                         providers: [
-                          BlocProvider(create: (_) => ChatDetailCubit(initialSession: session)..loadInitialChats()),
+                          BlocProvider(
+                            create: (_) =>
+                                ChatDetailCubit(initialSession: session)
+                                  ..loadInitialChats(),
+                          ),
                           BlocProvider(create: (_) => SessionActionCubit()),
                         ],
                         child: ChatDetailPage(session: session),
@@ -363,9 +375,6 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                 controller: _descController,
                                 hintText: "Deskripsi Masalah",
                                 maxLines: 3,
-                                validator: (val) => val == null || val.isEmpty
-                                    ? "Deskripsi wajib diisi"
-                                    : null,
                               ),
                               const SizedBox(height: 20),
 

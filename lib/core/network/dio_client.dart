@@ -47,7 +47,9 @@ class DioClient {
 
         onError: (DioException e, handler) async {
           // Tangkap Unauthorized (401) — token expired atau tidak valid
-          if (e.response?.statusCode == 401) {
+          // KECUALI untuk endpoint login (karena 401 di login berarti user/pass salah)
+          if (e.response?.statusCode == 401 &&
+              !e.requestOptions.path.contains('/auth/login')) {
             // Dapatkan context dari navigator global untuk akses Cubit
             final context = NavigationService.navigatorKey.currentContext;
             

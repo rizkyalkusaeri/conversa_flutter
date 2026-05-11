@@ -38,6 +38,7 @@ class AppAuthCubit extends Cubit<AppAuthState> {
 
   // Dipanggil pada Dashboard dan interceptors error
   Future<void> logOut() async {
+    emit(AppAuthLoading());
     // Normal logout (koneksi masih valid)
     await _authRepository.logout();
     

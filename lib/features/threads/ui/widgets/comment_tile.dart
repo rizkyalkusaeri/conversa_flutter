@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_config.dart';
 import '../../../../features/chat/ui/widgets/full_screen_image_viewer.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import '../../../../core/widgets/video_attachment_widget.dart';
 
 class CommentTile extends StatelessWidget {
   final CommentModel comment;
@@ -282,13 +283,27 @@ class CommentTile extends StatelessWidget {
               }).toList(),
             ),
 
-          if (attachments.any((a) => a.isImage) &&
-              attachments.any((a) => !a.isImage))
+          // Videos
+          if (attachments.any((a) => a.isVideo))
+            ...attachments.where((a) => a.isVideo).map((att) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: VideoAttachmentWidget(
+                    videoUrl: '${ApiConfig.imageUrl}${att.url}',
+                  ),
+                ),
+              );
+            }),
+
+          if ((attachments.any((a) => a.isImage) || attachments.any((a) => a.isVideo)) &&
+              attachments.any((a) => !a.isImage && !a.isVideo))
             const SizedBox(height: 8),
 
           // Files
-          if (attachments.any((a) => !a.isImage))
-            ...attachments.where((a) => !a.isImage).map((att) {
+          if (attachments.any((a) => !a.isImage && !a.isVideo))
+            ...attachments.where((a) => !a.isImage && !a.isVideo).map((att) {
               return GestureDetector(
                 onTap: () => _launchURL('${ApiConfig.imageUrl}${att.url}'),
                 child: Container(

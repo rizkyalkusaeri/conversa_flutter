@@ -19,6 +19,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 class ThreadDetailPage extends StatefulWidget {
   final String threadUuid;
@@ -368,7 +369,35 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    if (thread.topicName != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withAlpha(20),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.tag, size: 12, color: AppColors.secondary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '${thread.categoryName} > ${thread.subCategoryName} > ${thread.topicName}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.secondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                     Text(
                       _formatDateTime(thread.createdAt),
                       style: TextStyle(
@@ -447,11 +476,27 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 ),
           ],
 
-          // Non-image attachments
-          if (thread.attachments.where((a) => !a.isImage).isNotEmpty) ...[
+          // Video Attachments
+          if (thread.attachments.any((a) => a.isVideo)) ...[
+            const SizedBox(height: 16),
+            ...thread.attachments.where((a) => a.isVideo).map(
+                  (att) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: VideoAttachmentWidget(
+                        videoUrl: '${ApiConfig.imageUrl}${att.url}',
+                      ),
+                    ),
+                  ),
+                ),
+          ],
+
+          // Non-media attachments (Files)
+          if (thread.attachments.where((a) => !a.isImage && !a.isVideo).isNotEmpty) ...[
             const SizedBox(height: 12),
             ...thread.attachments
-                .where((a) => !a.isImage)
+                .where((a) => !a.isImage && !a.isVideo)
                 .map(
                   (att) => GestureDetector(
                     onTap: () =>
@@ -720,21 +765,29 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Kamera'),
+              title: const Text('Ambil Foto'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takePhoto();
               },
             ),
             ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: AppColors.primary,
-              ),
-              title: const Text('Galeri Gambar'),
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
               onTap: () {
                 Navigator.pop(ctx);
-                _pickImages();
+                _takeVideo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.perm_media_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeri Media (Foto & Video)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickMedia();
               },
             ),
             ListTile(
@@ -794,11 +847,23 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
     }
   }
 
-  Future<void> _pickImages() async {
+  Future<void> _takeVideo() async {
+    var status = await Permission.camera.status;
+    if (status.isDenied) await Permission.camera.request();
+    if (!status.isGranted) return;
+
     final picker = ImagePicker();
-    final images = await picker.pickMultiImage(imageQuality: 80);
-    if (images.isNotEmpty) {
-      setState(() => _selectedFiles.addAll(images.map((x) => File(x.path))));
+    final video = await picker.pickVideo(source: ImageSource.camera);
+    if (video != null) {
+      setState(() => _selectedFiles.add(File(video.path)));
+    }
+  }
+
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final media = await picker.pickMultipleMedia();
+    if (media.isNotEmpty) {
+      setState(() => _selectedFiles.addAll(media.map((x) => File(x.path))));
     }
   }
 
@@ -857,14 +922,35 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                           height: 80,
                           fit: BoxFit.cover,
                         )
-                      : Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                            child: Icon(Icons.description, color: Colors.grey),
-                          ),
-                        ),
+                      : ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(
+                          file.path.toLowerCase().split('.').last,
+                        )
+                          ? Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.black.withAlpha(20),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.videocam,
+                                      color: AppColors.primary, size: 20),
+                                  Text('Video',
+                                      style: TextStyle(
+                                          fontSize: 9,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            )
+                          : Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child:
+                                    Icon(Icons.description, color: Colors.grey),
+                              ),
+                            ),
                 ),
                 Positioned(
                   top: 0,

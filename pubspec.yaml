@@ -55,6 +55,8 @@ dependencies:
   firebase_messaging: ^15.2.5
   in_app_update: ^4.0.2
   mime: ^2.0.0
+  video_player: ^2.9.1
+  chewie: ^1.8.5
 
 dev_dependencies:
   flutter_test:
