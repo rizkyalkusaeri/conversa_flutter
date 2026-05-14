@@ -55,12 +55,31 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
       _contentController.text = widget.editThread!.content;
       _selectedLevelIds = List.from(widget.editThread!.selectedLevelIds);
       _selectedUserIds = List.from(widget.editThread!.selectedUserIds);
+      
+      // Pre-fill Topic
       _selectedTopicId = widget.editThread!.topicId;
-
       if (_selectedTopicId != null) {
         _selectedTopicModel = MasterDataModel(
           id: _selectedTopicId!,
           text: widget.editThread!.topicName ?? 'Topik Terpilih',
+        );
+      }
+
+      // Pre-fill Sub-Category
+      _selectedSubCategoryId = widget.editThread!.subCategoryId;
+      if (_selectedSubCategoryId != null) {
+        _selectedSubCategoryModel = MasterDataModel(
+          id: _selectedSubCategoryId!,
+          text: widget.editThread!.subCategoryName ?? 'Sub-Kategori Terpilih',
+        );
+      }
+
+      // Pre-fill Category
+      _selectedCategoryId = widget.editThread!.categoryId;
+      if (_selectedCategoryId != null) {
+        _selectedCategoryModel = MasterDataModel(
+          id: _selectedCategoryId!,
+          text: widget.editThread!.categoryName ?? 'Kategori Terpilih',
         );
       }
     }
@@ -178,7 +197,9 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                   ),
 
                   // ─── Cascading Selectors ──────────────────────────────────
-                  const FormLabel(text: "KATEGORI"),
+                  const FormLabel(
+                    text: "KATEGORI (Opsional untuk filter topik)",
+                  ),
                   SearchableDropdownField(
                     hintText: "Pilih Kategori",
                     selectedItem: _selectedCategoryModel,
@@ -200,7 +221,9 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                   const SizedBox(height: 16),
 
                   if (_selectedCategoryId != null) ...[
-                    const FormLabel(text: "SUB-KATEGORI"),
+                    const FormLabel(
+                      text: "SUB-KATEGORI (Opsional untuk filter topik)",
+                    ),
                     SearchableDropdownField(
                       hintText: "Pilih Sub-Kategori",
                       selectedItem: _selectedSubCategoryModel,
@@ -306,14 +329,18 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
           runSpacing: 8,
           children: remaining.map((att) {
             final isImage = att.isImage;
+            final isVideo = att.isVideo;
+            
             return Stack(
               children: [
                 Container(
-                  width: isImage ? 100 : null,
-                  height: isImage ? 100 : null,
+                  width: (isImage || isVideo) ? 100 : null,
+                  height: (isImage || isVideo) ? 100 : null,
+                  constraints: const BoxConstraints(maxWidth: 180),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade200),
+                    color: Colors.white,
                   ),
                   child: isImage
                       ? ClipRRect(
@@ -327,23 +354,54 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                             ),
                           ),
                         )
+                      : isVideo
+                      ? Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.videocam, color: AppColors.primary),
+                              SizedBox(height: 4),
+                              Text(
+                                'Video',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       : Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 8,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.attach_file,
+                                Icons.insert_drive_file,
                                 size: 16,
                                 color: Colors.grey.shade500,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                att.originalName ?? 'File',
-                                style: const TextStyle(fontSize: 12),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  att.originalName ?? 'File',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -404,11 +462,13 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
             return Stack(
               children: [
                 Container(
-                  width: isImage ? 100 : null,
-                  height: isImage ? 100 : null,
+                  width: (isImage || _isVideoFile(file.path)) ? 100 : null,
+                  height: (isImage || _isVideoFile(file.path)) ? 100 : null,
+                  constraints: const BoxConstraints(maxWidth: 180),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade200),
+                    color: Colors.white,
                   ),
                   child: isImage
                       ? ClipRRect(
@@ -441,21 +501,28 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                         )
                       : Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 8,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.attach_file,
+                                Icons.insert_drive_file,
                                 size: 16,
                                 color: Colors.grey.shade500,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                file.path.split(Platform.pathSeparator).last,
-                                style: const TextStyle(fontSize: 12),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  file.path.split(Platform.pathSeparator).last,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),

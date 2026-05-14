@@ -75,7 +75,9 @@ class ThreadModel {
   final List<int> selectedUserIds;
   final int? topicId;
   final String? topicName;
+  final int? subCategoryId;
   final String? subCategoryName;
+  final int? categoryId;
   final String? categoryName;
 
   ThreadModel({
@@ -94,7 +96,9 @@ class ThreadModel {
     this.selectedUserIds = const [],
     this.topicId,
     this.topicName,
+    this.subCategoryId,
     this.subCategoryName,
+    this.categoryId,
     this.categoryName,
   });
 
@@ -156,7 +160,13 @@ class ThreadModel {
           ? int.tryParse(json['topic_id'].toString()) 
           : null,
       topicName: json['topic_name'] as String?,
+      subCategoryId: json['sub_category_id'] != null
+          ? int.tryParse(json['sub_category_id'].toString())
+          : null,
       subCategoryName: json['sub_category_name'] as String?,
+      categoryId: json['category_id'] != null
+          ? int.tryParse(json['category_id'].toString())
+          : null,
       categoryName: json['category_name'] as String?,
     );
   }
@@ -179,7 +189,9 @@ class ThreadModel {
       selectedUserIds: selectedUserIds,
       topicId: topicId,
       topicName: topicName,
+      subCategoryId: subCategoryId,
       subCategoryName: subCategoryName,
+      categoryId: categoryId,
       categoryName: categoryName,
     );
   }

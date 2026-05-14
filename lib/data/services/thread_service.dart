@@ -167,4 +167,13 @@ class ThreadService {
       throw Exception('Gagal mengubah status like komentar: $e');
     }
   }
+
+  /// Delete a thread
+  Future<void> deleteThread(String uuid) async {
+    try {
+      await _dio.delete('/threads/$uuid');
+    } catch (e) {
+      throw Exception('Gagal menghapus thread: $e');
+    }
+  }
 }

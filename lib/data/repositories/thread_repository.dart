@@ -70,4 +70,8 @@ class ThreadRepository {
   Future<int> toggleLikeComment(int commentId) {
     return _service.toggleLikeComment(commentId);
   }
+
+  Future<void> deleteThread(String uuid) {
+    return _service.deleteThread(uuid);
+  }
 }

@@ -12,6 +12,7 @@ class ThreadCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLike;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const ThreadCard({
     super.key,
@@ -20,6 +21,7 @@ class ThreadCard extends StatelessWidget {
     required this.onTap,
     required this.onLike,
     this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -227,27 +229,40 @@ class ThreadCard extends StatelessWidget {
           ),
         ),
 
-        // Menu (edit — only for owner)
-        if (isOwner && onEdit != null)
+        // Menu (edit/delete — only for owner)
+        if (isOwner && (onEdit != null || onDelete != null))
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'edit') onEdit!();
+              if (value == 'edit' && onEdit != null) onEdit!();
+              if (value == 'delete' && onDelete != null) onDelete!();
             },
             icon: Icon(Icons.more_horiz, color: Colors.grey.shade400, size: 20),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 18, color: AppColors.textDark),
-                    SizedBox(width: 8),
-                    Text('Edit Thread'),
-                  ],
+              if (onEdit != null)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18, color: AppColors.textDark),
+                      SizedBox(width: 8),
+                      Text('Edit Thread'),
+                    ],
+                  ),
                 ),
-              ),
+              if (onDelete != null)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Hapus Thread', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
             ],
           ),
       ],

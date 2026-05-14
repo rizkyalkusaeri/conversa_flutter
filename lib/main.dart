@@ -1,4 +1,5 @@
 import 'package:fifgroup_android_ticketing/core/constants/app_colors.dart';
+import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -60,7 +61,7 @@ class MyApp extends StatelessWidget {
           navigatorKey: NavigationService.navigatorKey,
           title: 'Fi-Link',
           theme: AppTheme.lightTheme,
-          debugShowCheckedModeBanner: false,
+          debugShowCheckedModeBanner: !ApiConfig.isProduction,
           home: BlocConsumer<AppAuthCubit, AppAuthState>(
             listener: (context, state) {
               if (state is AppAuthSessionExpired) {

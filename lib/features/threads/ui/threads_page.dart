@@ -247,6 +247,9 @@ class _ThreadsPageState extends State<ThreadsPage> {
                         onEdit: (thread.author.id == _currentUserId)
                             ? () => _navigateToEditThread(context, thread)
                             : null,
+                        onDelete: (thread.author.id == _currentUserId)
+                            ? () => _showDeleteConfirmation(context, thread.id)
+                            : null,
                       );
                     },
                   ),
@@ -335,5 +338,44 @@ class _ThreadsPageState extends State<ThreadsPage> {
     if (result == true && mounted) {
       _cubit.loadInitial();
     }
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String threadUuid) {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Thread'),
+        content: const Text('Apakah Anda yakin ingin menghapus thread ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _cubit.deleteThread(threadUuid);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Thread berhasil dihapus'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal menghapus thread: $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

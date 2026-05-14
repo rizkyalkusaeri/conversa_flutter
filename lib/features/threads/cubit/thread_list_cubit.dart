@@ -95,5 +95,22 @@ class ThreadListCubit extends Cubit<ThreadListState> {
       }
     }
   }
+
+  /// Delete thread
+  Future<void> deleteThread(String threadUuid) async {
+    final currentState = state;
+    if (currentState is ThreadListLoaded) {
+      try {
+        await _repository.deleteThread(threadUuid);
+        final updatedThreads = currentState.threads
+            .where((t) => t.id != threadUuid)
+            .toList();
+        emit(currentState.copyWith(threads: updatedThreads));
+      } catch (e) {
+        // Rethrow to let UI handle the notification
+        throw Exception(e.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+  }
 }
 
