@@ -1,5 +1,5 @@
 class ApiConfig {
-  static bool isProduction = false;
+  static bool isProduction = true;
   // Gunakan IP lokal host atau 10.0.2.2 untuk emulator android
   static String get baseUrl => isProduction
       ? 'https://fi-link.id/api/v1'
@@ -12,5 +12,6 @@ class ApiConfig {
       isProduction ? 'fi-link.id' : 'dev.fi-link.id';
 
   // REVERB_APP_KEY dari .env — sama di semua environment dalam project ini
-  static const String reverbKey = 'syhdndftedn1zdw285ub';
+  static String get reverbKey =>
+      isProduction ? 'syhdndftedn1zdw285ub' : 'syhdndftedn1zdw999ub';
 }

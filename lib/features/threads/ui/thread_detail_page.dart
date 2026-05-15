@@ -313,66 +313,86 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          thread.author.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: AppColors.textDark,
+                        Flexible(
+                          child: Text(
+                            thread.author.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: AppColors.textDark,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (thread.visibleToLevels.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Builder(builder: (context) {
-                            const maxDisplay = 5; // Detail page boleh lebih banyak
-                            final displayList = thread.visibleToLevels.take(maxDisplay).toList();
-                            final remainingCount = thread.visibleToLevels.length - maxDisplay;
+                        const SizedBox(width: 6),
+                        Text(
+                          '• ${_formatTimeAgo(thread.createdAt)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (thread.visibleToLevels.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Builder(builder: (context) {
+                        const maxDisplay = 3;
+                        final displayList =
+                            thread.visibleToLevels.take(maxDisplay).toList();
+                        final remainingCount =
+                            thread.visibleToLevels.length - maxDisplay;
 
-                            return Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children: [
-                                ...displayList.map((level) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        return Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            ...displayList.map((level) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withAlpha(25),
+                                    color: AppColors.primary.withAlpha(20),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     level,
                                     style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
                                       color: AppColors.primary,
                                     ),
                                   ),
                                 )),
-                                if (remainingCount > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '+$remainingCount',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
+                            if (remainingCount > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '+$remainingCount lainnya',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade600,
                                   ),
-                              ],
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
+                                ),
+                              ),
+                          ],
+                        );
+                      }),
+                    ],
                     if (thread.topicName != null) ...[
                       const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.secondary.withAlpha(20),
                           borderRadius: BorderRadius.circular(6),
@@ -380,13 +400,14 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.tag, size: 12, color: AppColors.secondary),
+                            const Icon(Icons.tag,
+                                size: 10, color: AppColors.secondary),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 '${thread.categoryName} > ${thread.subCategoryName} > ${thread.topicName}',
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.secondary,
                                 ),
@@ -397,14 +418,6 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatDateTime(thread.createdAt),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1008,8 +1021,16 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
     return parts.isNotEmpty ? parts[0][0].toUpperCase() : 'U';
   }
 
-  String _formatDateTime(DateTime? dt) {
-    if (dt == null) return '';
-    return DateFormat('dd MMM yyyy, HH:mm').format(dt);
+  String _formatTimeAgo(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+    return DateFormat('dd MMM yyyy').format(dateTime);
   }
 }
