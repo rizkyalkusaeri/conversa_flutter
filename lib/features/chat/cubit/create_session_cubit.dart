@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
+import '../../../core/utils/error_helper.dart';
 import 'create_session_state.dart';
 
 class CreateSessionCubit extends Cubit<CreateSessionState> {
@@ -30,7 +31,7 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       emit(newState);
       
     } catch (e) {
-      emit(CreateSessionError("Gagal mengambil data kategori: $e"));
+      emit(CreateSessionError("Gagal mengambil data kategori: ${ErrorHelper.getFriendlyError(e)}"));
     }
   }
 
@@ -62,7 +63,7 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
         _lastFormState = newState;
         emit(newState);
       } catch (e) {
-        emit(CreateSessionError("Gagal mengambil subordinat kategori: $e"));
+        emit(CreateSessionError("Gagal mengambil subordinat kategori: ${ErrorHelper.getFriendlyError(e)}"));
         if (_lastFormState != null) emit(_lastFormState!);
       }
     }
@@ -91,7 +92,7 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
           _lastFormState = newState;
           emit(newState);
         } catch (e) {
-          emit(CreateSessionError("Gagal mengambil data Topik: $e"));
+          emit(CreateSessionError("Gagal mengambil data Topik: ${ErrorHelper.getFriendlyError(e)}"));
           if (_lastFormState != null) emit(_lastFormState!);
         }
       } else {
@@ -127,10 +128,11 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
         ));
         if (_lastFormState != null) emit(_lastFormState!);
       } catch (e) {
-        emit(CreateSessionError(e.toString().replaceFirst('Exception: ', ''), isDuringSubmit: true));
+        emit(CreateSessionError(ErrorHelper.getFriendlyError(e), isDuringSubmit: true));
         // Kembalikan form state agar User dapat mencoba lagi
         if (_lastFormState != null) emit(_lastFormState!);
       }
     }
   }
 }
+

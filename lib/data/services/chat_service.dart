@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
+import '../../../core/utils/error_helper.dart';
 import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
 import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
 
@@ -29,7 +30,7 @@ class ChatService {
         (json) => ChatMessageModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat pesan: $e');
+      rethrow;
     }
   }
 
@@ -51,7 +52,7 @@ class ChatService {
         (json) => ChatMessageModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat pesan global: $e');
+      rethrow;
     }
   }
 
@@ -119,34 +120,8 @@ class ChatService {
       } else {
         throw Exception(apiResponse.message);
       }
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal mengirim pesan';
-        
-        if (data['errors'] != null && data['errors'] is Map) {
-          final Map errors = data['errors'];
-          if (errors.isNotEmpty) {
-            final firstKey = errors.keys.first;
-            final errorValues = errors[firstKey];
-            if (errorValues is List && errorValues.isNotEmpty) {
-              errorMessage = errorValues.first.toString();
-            } else if (errorValues is String) {
-              errorMessage = errorValues;
-            }
-          }
-        }
-        
-        throw Exception(errorMessage);
-      }
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.sendTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        throw Exception('Koneksi timeout. Pastikan ukuran file tidak terlalu besar dan koneksi stabil.');
-      }
-      throw Exception('Gagal mengirim pesan: ${e.message}');
     } catch (e) {
-      rethrow;
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bloc/bloc.dart';
@@ -35,7 +36,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         searchQuery: searchQuery,
       ));
     } catch (e) {
-      emit(ChatDetailError(e.toString()));
+      emit(ChatDetailError(_friendlyError(e)));
     }
   }
 
@@ -57,7 +58,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
       } catch (e) {
         // Rollback current page if failed
         _currentPage--;
-        emit(ChatDetailError(e.toString()));
+        emit(ChatDetailError(_friendlyError(e)));
       }
     }
   }
@@ -88,7 +89,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         emit(currentState.copyWith(
           isSubmitting: false,
           isUploadingAttachment: false,
-          submitError: e.toString().replaceFirst('Exception: ', ''),
+          submitError: _friendlyError(e),
           submitErrorTimestamp: DateTime.now().millisecondsSinceEpoch,
         ));
       }
@@ -145,5 +146,34 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         debugPrint('reloadSession error: $e');
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helper: Ubah exception teknis menjadi pesan yang bersih untuk user
+  // ---------------------------------------------------------------------------
+  static String _friendlyError(Object e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        case DioExceptionType.badResponse:
+          final code = e.response?.statusCode;
+          if (code == 401) return 'Sesi telah berakhir. Silakan login kembali.';
+          if (code == 403) return 'Anda tidak memiliki akses.';
+          if (code == 404) return 'Data tidak ditemukan.';
+          if (code != null && code >= 500) return 'Server sedang bermasalah. Coba beberapa saat lagi.';
+          return 'Terjadi kesalahan dari server.';
+        case DioExceptionType.cancel:
+          return 'Permintaan dibatalkan.';
+        default:
+          return 'Terjadi kesalahan jaringan.';
+      }
+    }
+    // Exception biasa — buang prefix "Exception: "
+    final raw = e.toString();
+    return raw.startsWith('Exception: ') ? raw.replaceFirst('Exception: ', '') : raw;
   }
 }

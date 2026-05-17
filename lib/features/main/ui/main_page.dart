@@ -13,6 +13,7 @@ import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/update_service.dart';
 import '../../../core/storage/storage_manager.dart';
+import '../../../core/widgets/offline_banner.dart';
 import '../../profile/ui/privacy_policy_page.dart';
 import '../../chat/cubit/active_session_count_cubit.dart';
 import '../../chat/cubit/active_session_count_state.dart';
@@ -106,6 +107,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     // 2. Init Echo (WebSocket ke Reverb)
     await EchoService.init(currentUserId: _currentUserId);
+
+    // 2a. Subscribe ke ConnectivityService untuk auto-reconnect Echo saat internet kembali.
+    //     Hanya dipanggil SATU KALI, cleanup otomatis di disconnect() saat logout.
+    EchoService.subscribeToConnectivity();
 
     // 3. Init FCM (minta permission, upload token ke server) — sekali saja
     //    Dijalankan setelah auth token tersedia
@@ -305,7 +310,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: OfflineBanner(
+        child: IndexedStack(index: _selectedIndex, children: _pages),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),

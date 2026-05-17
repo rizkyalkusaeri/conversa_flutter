@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
 import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
+import '../../../core/utils/error_helper.dart';
 import 'create_thread_state.dart';
 
 class CreateThreadCubit extends Cubit<CreateThreadState> {
@@ -65,8 +66,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
 
       emit(const CreateThreadSuccess('Thread berhasil dipublikasikan.'));
     } catch (e) {
-      emit(CreateThreadError(
-          e.toString().replaceFirst('Exception: ', '')));
+      emit(CreateThreadError(ErrorHelper.getFriendlyError(e)));
     }
   }
 
@@ -143,8 +143,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
 
       emit(const CreateThreadSuccess('Thread berhasil diperbarui.'));
     } catch (e) {
-      emit(CreateThreadError(
-          e.toString().replaceFirst('Exception: ', '')));
+      emit(CreateThreadError(ErrorHelper.getFriendlyError(e)));
     }
   }
 

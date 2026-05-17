@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/utils/error_helper.dart';
 import 'package:fifgroup_android_ticketing/data/models/login_response.dart';
 
 class AuthService {
@@ -22,14 +23,15 @@ class AuthService {
 
     } on DioException catch (e) {
       if (e.response != null && e.response?.data != null) {
+        if (e.response!.statusCode == 429) rethrow; // Biarkan login cubit menangani rate limit
         return ApiResponse<LoginResponse>.fromJson(
           e.response!.data,
           (json) => LoginResponse.fromJson(json as Map<String, dynamic>),
         );
       }
-      throw Exception('Gagal menghubungi server: ${e.message}');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     } catch (e) {
-      throw Exception('Terjadi kesalahan yang tidak terduga: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -41,9 +43,9 @@ class AuthService {
       if (e.response != null && e.response?.data != null) {
          return ApiResponse.fromJson(e.response!.data, null);
       }
-      throw Exception('Gagal menghubungi server: ${e.message}');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     } catch (e) {
-      throw Exception('Terjadi kesalahan yang tidak terduga: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -64,9 +66,9 @@ class AuthService {
       if (e.response != null && e.response?.data != null) {
         return ApiResponse.fromJson(e.response!.data, null);
       }
-      throw Exception('Gagal menghubungi server: ${e.message}');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     } catch (e) {
-      throw Exception('Terjadi kesalahan yang tidak terduga: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 }

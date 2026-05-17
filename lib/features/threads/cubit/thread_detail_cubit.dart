@@ -23,7 +23,7 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
       // Immediately load first page of comments
       await loadComments(uuid, refresh: true);
     } catch (e) {
-      emit(ThreadDetailError(e.toString().replaceFirst('Exception: ', '')));
+      emit(ThreadDetailError(_friendlyError(e)));
     }
   }
 
@@ -156,7 +156,7 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
           ThreadDetailCommentError(
             thread: currentState.thread,
             comments: currentState.comments,
-            errorMessage: e.toString().replaceFirst('Exception: ', ''),
+            errorMessage: _friendlyError(e),
           ),
         );
       }
@@ -191,5 +191,30 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
       }
       return c;
     }).toList();
+  }
+
+  static String _friendlyError(Object e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        case DioExceptionType.badResponse:
+          final code = e.response?.statusCode;
+          if (code == 401) return 'Sesi telah berakhir. Silakan login kembali.';
+          if (code == 403) return 'Anda tidak memiliki akses.';
+          if (code == 404) return 'Data tidak ditemukan.';
+          if (code != null && code >= 500) return 'Server sedang bermasalah. Coba beberapa saat lagi.';
+          return 'Terjadi kesalahan dari server.';
+        case DioExceptionType.cancel:
+          return 'Permintaan dibatalkan.';
+        default:
+          return 'Terjadi kesalahan jaringan.';
+      }
+    }
+    final raw = e.toString();
+    return raw.startsWith('Exception: ') ? raw.replaceFirst('Exception: ', '') : raw;
   }
 }

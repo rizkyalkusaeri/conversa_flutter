@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/navigation_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/network/connectivity_service.dart';
 import 'features/auth/cubit/app_auth/app_auth_cubit.dart';
 import 'features/auth/cubit/app_auth/app_auth_state.dart';
 import 'features/chat/cubit/active_session_count_cubit.dart';
@@ -32,6 +33,10 @@ void main() async {
   // Harus top-level function dengan @pragma('vm:entry-point')
   // Handler ini aktif saat app terminated/background tanpa Flutter engine
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Init ConnectivityService — mulai monitoring konektivitas sejak awal
+  // unawaited: tidak memblokir startup, status awal akan diupdate async
+  await ConnectivityService.instance.init();
 
   // CATATAN: NotificationService.init() & FcmService.init() TIDAK dipanggil di sini
   // karena keduanya membutuhkan auth token yang baru tersedia setelah login.

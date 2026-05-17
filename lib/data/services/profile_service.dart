@@ -20,9 +20,9 @@ class ProfileService {
           (json) => UserModel.fromJson(json as Map<String, dynamic>),
         );
       }
-      throw Exception('Gagal menghubungi server: ${e.message}');
+      rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan yang tidak terduga: $e');
+      rethrow;
     }
   }
 }

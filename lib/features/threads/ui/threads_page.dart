@@ -171,14 +171,14 @@ class _ThreadsPageState extends State<ThreadsPage> {
               if (state is ThreadListError) {
                 return Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(32),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: AppColors.error,
-                          size: 48,
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 56,
+                          color: Colors.grey.shade400,
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -187,17 +187,23 @@ class _ThreadsPageState extends State<ThreadsPage> {
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 14,
+                            height: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () =>
-                              context.read<ThreadListCubit>().loadInitial(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () => context
+                              .read<ThreadListCubit>()
+                              .loadInitial(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Coba Lagi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          child: const Text('Retry'),
                         ),
                       ],
                     ),

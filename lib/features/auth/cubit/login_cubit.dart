@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/utils/error_helper.dart';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
@@ -58,14 +59,14 @@ class LoginCubit extends Cubit<LoginState> {
       // DioException lain — koneksifailure, timeout, dll
       emit(state.copyWith(
         isLoading: false,
-        errorMessage: e.message ?? 'Gagal menghubungi server.',
+        errorMessage: ErrorHelper.getFriendlyError(e),
       ));
     } catch (e) {
       // Exception biasa dari repository (401, 500, dsb.)
       emit(
         state.copyWith(
           isLoading: false,
-          errorMessage: e.toString().replaceFirst('Exception: ', ''),
+          errorMessage: ErrorHelper.getFriendlyError(e),
         ),
       );
     }

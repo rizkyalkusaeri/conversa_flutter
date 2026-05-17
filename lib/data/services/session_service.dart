@@ -5,6 +5,8 @@ import '../../../core/network/pagination_response.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
 import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
+import '../../../core/utils/error_helper.dart';
+
 
 class SessionService {
   final Dio _dio = DioClient.getInstance;
@@ -33,7 +35,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat daftar sesi (Chat): $e');
+      rethrow;
     }
   }
 
@@ -64,7 +66,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat daftar sesi global: $e');
+      rethrow;
     }
   }
 
@@ -101,15 +103,13 @@ class SessionService {
             throw Exception(errorValues);
           }
         }
-
-        throw Exception(errorMessage);
       }
-      throw Exception('Gagal membuat sesi: ${e.message}');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     } on PendingFeedbackException {
       // Rethrow tanpa membungkus — agar cubit dapat menangani dialog rating
       rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan tak terduga: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -122,7 +122,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal meminta penutupan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -140,14 +140,8 @@ class SessionService {
         response.data,
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        final resData = e.response!.data is Map ? e.response!.data as Map : {};
-        throw Exception(resData['message'] ?? 'Gagal mengirim penilaian');
-      }
-      throw Exception('Gagal mengirim penilaian: ${e.message}');
     } catch (e) {
-      throw Exception('Terjadi kesalahan: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -159,7 +153,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal menolak penutupan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -175,7 +169,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal menyelesaikan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -187,7 +181,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal mengajukan pembukaan kembali sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -197,7 +191,7 @@ class SessionService {
       final data = response.data['data'];
       return SessionModel.fromJson(data as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Gagal memuat detail sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -207,7 +201,7 @@ class SessionService {
       final listData = response.data['data'] as List<dynamic>? ?? [];
       return listData.map((e) => MasterDataModel.fromJson(e, keyName)).toList();
     } catch (e) {
-      throw Exception('Gagal load master data $endpoint: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 }
