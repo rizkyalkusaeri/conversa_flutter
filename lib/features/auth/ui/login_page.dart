@@ -2,16 +2,48 @@
 import 'package:fifgroup_android_ticketing/core/widgets/form_label.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/form_text_field.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/app_version_text.dart';
+import 'package:fifgroup_android_ticketing/core/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/update_service.dart';
 import '../cubit/login_cubit.dart';
 
-class LoginPage extends StatelessWidget {
-  LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Cek update saat login page dibuka — berlaku saat pertama buka app
+    // maupun setelah session expired dan user dikembalikan ke login
+    _checkUpdate();
+  }
+
+  Future<void> _checkUpdate() async {
+    final versionInfo = await UpdateService.checkForUpdate();
+    if (versionInfo != null && mounted) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        await UpdateDialog.show(context, versionInfo);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +81,7 @@ class LoginPage extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 80),
-                  // LOGO (Pakai Container Oranye Bulat)
+                  // LOGO
                   Center(
                     child: SizedBox(
                       child: const Image(
@@ -107,9 +139,9 @@ class LoginPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.08),
+                        color: AppColors.error.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.error.withOpacity(0.4)),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
                       ),
                       child: Row(
                         children: [
