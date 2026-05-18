@@ -66,7 +66,7 @@ class _ChatPageState extends State<ChatPage> {
       return null;
     });
 
-    bool isCabang = authRole == 'Cabang';
+    bool canCreateSession = authRole != null && authRole != 'Admin';
 
     return BlocProvider.value(
       value: _cubit,
@@ -92,7 +92,7 @@ class _ChatPageState extends State<ChatPage> {
             const Expanded(child: SessionListView()),
           ],
         ),
-        floatingActionButton: isCabang
+        floatingActionButton: canCreateSession
             ? FloatingActionButton(
                 heroTag: 'chat_fab',
                 onPressed: () => _showCreateSessionModal(context),
@@ -710,8 +710,8 @@ class _SessionListViewState extends State<SessionListView> {
                 _buildDetailRow('Topik', session.topicName ?? '-'),
                 if (session.noAppl != null && session.noAppl!.isNotEmpty)
                   _buildDetailRow('No. Appl', session.noAppl!),
-                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
-                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow('Pemohon', session.requesterName ?? '-'),
+                _buildDetailRow('Penyelesai', session.resolverName ?? 'Menunggu'),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(

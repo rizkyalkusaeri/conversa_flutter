@@ -379,9 +379,9 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                               const SizedBox(height: 20),
 
                               // RESOLVER
-                              FormLabel(text: "Cari User HO"),
+                              FormLabel(text: "User Penyelesai"),
                               SearchableDropdownField(
-                                hintText: "Cari User HO",
+                                hintText: "Cari User Penyelesai",
                                 selectedItem: _selectedResolverModel,
                                 prefixIcon: const Icon(
                                   Icons.search,
