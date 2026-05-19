@@ -41,6 +41,7 @@ class SessionModel {
   final DateTime? openRequestedAt;
   final int? openRequestedBy;
   final bool isHaveUniqueId;
+  final bool isFeedbackRequired;
   final int? rating;
   final String? feedback;
   final int unreadCount;
@@ -66,6 +67,7 @@ class SessionModel {
     this.openRequestedAt,
     this.openRequestedBy,
     this.isHaveUniqueId = false,
+    this.isFeedbackRequired = false,
     this.rating,
     this.feedback,
     required this.unreadCount,
@@ -93,6 +95,7 @@ class SessionModel {
       openRequestedAt: json['open_requested_at'] != null ? DateTime.tryParse(json['open_requested_at']) : null,
       openRequestedBy: json['open_requested_by'],
       isHaveUniqueId: json['is_have_unique_id'] == true || json['is_have_unique_id'] == 1,
+      isFeedbackRequired: json['is_feedback_required'] == true || json['is_feedback_required'] == 1,
       rating: json['rating'],
       feedback: json['feedback'],
       unreadCount: json['unread_count'] ?? 0,

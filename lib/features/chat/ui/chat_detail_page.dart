@@ -699,8 +699,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             },
           ),
         if (status == 'CLOSED') ...[
-          // Tombol rating jika belum diberi penilaian dan user adalah requester
-          if (isRequester && session.rating == null)
+          // Tombol rating jika belum diberi penilaian dan user adalah requester & feedback diperlukan
+          if (isRequester && session.rating == null && session.isFeedbackRequired)
             IconButton(
               icon: const Icon(
                 Icons.star_border_rounded,

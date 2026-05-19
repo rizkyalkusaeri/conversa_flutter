@@ -19,7 +19,7 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
   final TextEditingController _feedbackController = TextEditingController();
 
   void _submit() {
-    if (!widget.session.isHaveUniqueId && _rating == 0) {
+    if (widget.session.isFeedbackRequired && _rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan berikan rating terlebih dahulu'),
@@ -31,8 +31,8 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
 
     context.read<SessionActionCubit>().completeSession(
       widget.session.id,
-      rating: widget.session.isHaveUniqueId ? null : _rating,
-      feedback: widget.session.isHaveUniqueId ? null : _feedbackController.text,
+      rating: widget.session.isFeedbackRequired ? _rating : null,
+      feedback: widget.session.isFeedbackRequired ? _feedbackController.text : null,
     );
   }
 
@@ -82,7 +82,7 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
                     ),
                     const SizedBox(height: 16),
                     
-                    if (widget.session.isHaveUniqueId) ...[
+                    if (!widget.session.isFeedbackRequired) ...[
                       const Text(
                         'Apakah Anda yakin ingin menyelesaikan sesi ini? Status tiket akan berubah menjadi CLOSED.',
                         style: TextStyle(fontSize: 14, color: Colors.grey),
