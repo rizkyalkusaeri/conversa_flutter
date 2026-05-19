@@ -410,7 +410,7 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.person_outline,
                       session.requesterName ?? '-',
-                      'Pembuat',
+                      'Pemohon',
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -420,7 +420,7 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.support_agent_outlined,
                       session.resolverName ?? 'Menunggu',
-                      'Penjawab',
+                      'Penyelesai',
                     ),
                   ),
                 ],
@@ -514,8 +514,8 @@ class _SearchPageState extends State<SearchPage> {
                   _buildDetailRow('No. Appl', session.noAppl!),
                 if (!session.isHaveUniqueId && session.topicName != null)
                   _buildDetailRow('Topik', session.topicName!),
-                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
-                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow('Pemohon', session.requesterName ?? '-'),
+                _buildDetailRow('Penyelesai', session.resolverName ?? 'Menunggu'),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(
