@@ -76,8 +76,6 @@ class SessionRepository {
   }
       
   Future<List<MasterDataModel>> getResolvers(int categoryId, {String? search}) {
-    Map<String, dynamic> params = {'category_id': categoryId};
-    if (search != null && search.isNotEmpty) params['search'] = search;
-    return _service.getMasterData('/master/resolvers', 'full_name', queryParams: params);
+    return _service.getResolvers(categoryId: categoryId, search: search);
   }
 }

@@ -204,4 +204,20 @@ class SessionService {
       throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
+
+  /// Khusus untuk endpoint resolvers — parse role dan jabatan sebagai subtitle
+  Future<List<MasterDataModel>> getResolvers({required int categoryId, String? search}) async {
+    try {
+      final Map<String, dynamic> queryParams = {'category_id': categoryId};
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get('/master/resolvers', queryParameters: queryParams);
+      final listData = response.data['data'] as List<dynamic>? ?? [];
+      return listData
+          .map((e) => MasterDataModel.fromResolverJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
 }
