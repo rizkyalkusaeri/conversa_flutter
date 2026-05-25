@@ -13,6 +13,7 @@ import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'widgets/comment_tile.dart';
 import 'create_thread_page.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -310,15 +311,22 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           // Author row
           Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.primaryContainer,
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+              GestureDetector(
+                onTap: () {
+                  if (thread.author.id != null) {
+                    UserProfilePopup.show(context, thread.author.id!);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.primaryContainer,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),

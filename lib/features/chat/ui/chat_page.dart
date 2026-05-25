@@ -15,6 +15,7 @@ import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/notification_service.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -475,14 +476,24 @@ class _SessionListViewState extends State<SessionListView> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: () {
+                  final opponentId = (currentUserName == session.requesterName)
+                      ? session.resolverId
+                      : session.requesterId;
+                  if (opponentId != null) {
+                    UserProfilePopup.show(context, opponentId);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

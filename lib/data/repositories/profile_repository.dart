@@ -26,4 +26,16 @@ class ProfileRepository {
           : 'Gagal memuat profil');
     }
   }
+
+  Future<UserModel> getUserProfile(int userId) async {
+    final response = await _service.fetchUserProfile(userId);
+
+    if (response.success && response.data != null) {
+      return response.data!;
+    } else {
+      throw Exception(response.message.isNotEmpty
+          ? response.message
+          : 'Gagal memuat profil pengguna');
+    }
+  }
 }

@@ -12,6 +12,7 @@ import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
 import '../cubit/global_chat_cubit.dart';
 import '../cubit/global_chat_state.dart';
 import '../../chat/ui/widgets/full_screen_image_viewer.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class GlobalChatHistoryPage extends StatefulWidget {
   final SessionModel session;
@@ -230,12 +231,19 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                child: Text(
-                  chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
-                  style: const TextStyle(color: AppColors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
+              GestureDetector(
+                onTap: () {
+                  if (chat.senderId != null) {
+                    UserProfilePopup.show(context, chat.senderId!);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                  child: Text(
+                    chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
+                    style: const TextStyle(color: AppColors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

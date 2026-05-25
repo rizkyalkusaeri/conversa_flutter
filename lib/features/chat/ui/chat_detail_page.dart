@@ -26,6 +26,7 @@ import 'widgets/complete_session_dialog.dart';
 import 'widgets/image_preview_dialog.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 import '../../../core/widgets/video_attachment_widget.dart';
 
 class ChatDetailPage extends StatefulWidget {
@@ -764,34 +765,44 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           ),
           child: Row(
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: () {
+                  final opponentId = (session.requesterId == _currentUserId)
+                      ? session.resolverId
+                      : session.requesterId;
+                  if (opponentId != null) {
+                    UserProfilePopup.show(context, opponentId);
+                  }
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -859,15 +870,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                  child: Text(
-                    chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
-                    style: const TextStyle(
-                      color: AppColors.secondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () {
+                    if (chat.senderId != null) {
+                      UserProfilePopup.show(context, chat.senderId!);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                    child: Text(
+                      chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
+                      style: const TextStyle(
+                        color: AppColors.secondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

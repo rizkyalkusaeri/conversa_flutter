@@ -8,6 +8,7 @@ import '../../../../core/network/api_config.dart';
 import '../../../../features/chat/ui/widgets/full_screen_image_viewer.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import '../../../../core/widgets/video_attachment_widget.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class CommentTile extends StatelessWidget {
   final CommentModel comment;
@@ -40,19 +41,26 @@ class CommentTile extends StatelessWidget {
             // Header
             Row(
               children: [
-                CircleAvatar(
-                  radius: isNested ? 14 : 16,
-                  backgroundColor: isNested
-                      ? Colors.grey.shade200
-                      : AppColors.primaryContainer,
-                  child: Text(
-                    _getInitials(comment.author.name),
-                    style: TextStyle(
-                      color: isNested
-                          ? Colors.grey.shade600
-                          : AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: isNested ? 10 : 12,
+                GestureDetector(
+                  onTap: () {
+                    if (comment.author.id != null) {
+                      UserProfilePopup.show(context, comment.author.id!);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: isNested ? 14 : 16,
+                    backgroundColor: isNested
+                        ? Colors.grey.shade200
+                        : AppColors.primaryContainer,
+                    child: Text(
+                      _getInitials(comment.author.name),
+                      style: TextStyle(
+                        color: isNested
+                            ? Colors.grey.shade600
+                            : AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: isNested ? 10 : 12,
+                      ),
                     ),
                   ),
                 ),

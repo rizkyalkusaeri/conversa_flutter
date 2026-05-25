@@ -5,6 +5,7 @@ import '../../../../core/network/api_config.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/widgets/video_attachment_widget.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class ThreadCard extends StatelessWidget {
   final ThreadModel thread;
@@ -99,15 +100,22 @@ class ThreadCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Avatar
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: AppColors.primaryContainer,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+        GestureDetector(
+          onTap: () {
+            if (thread.author.id != null) {
+              UserProfilePopup.show(context, thread.author.id!);
+            }
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.primaryContainer,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
         ),

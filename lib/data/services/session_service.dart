@@ -4,6 +4,7 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
 import '../../../core/utils/error_helper.dart';
 
@@ -44,6 +45,8 @@ class SessionService {
     String? status,
     int limit = 20,
     String? search,
+    int? userId,
+    String? scope,
   }) async {
     try {
       final Map<String, dynamic> queryParams = {
@@ -59,11 +62,45 @@ class SessionService {
         queryParams['search'] = search;
       }
 
+      if (userId != null) {
+        queryParams['user_id'] = userId;
+      }
+
+      if (scope != null && scope.isNotEmpty) {
+        queryParams['scope'] = scope;
+      }
+
       final response = await _dio.get('/global/sessions', queryParameters: queryParams);
 
       return PaginationResponse<SessionModel>.fromJson(
         response.data,
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<PaginationResponse<UserModel>> getGlobalUsers({
+    required int page,
+    int limit = 20,
+    String? search,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'limit': limit,
+      };
+
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+
+      final response = await _dio.get('/global/users', queryParameters: queryParams);
+
+      return PaginationResponse<UserModel>.fromJson(
+        response.data,
+        (json) => UserModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
       rethrow;

@@ -1,5 +1,6 @@
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
 import '../../../core/network/pagination_response.dart';
 
@@ -13,8 +14,12 @@ class SessionRepository {
     return _service.getSessions(status: status, page: page, search: search);
   }
 
-  Future<PaginationResponse<SessionModel>> fetchGlobalSessions(int page, {String? status, String? search}) {
-    return _service.getGlobalSessions(page: page, status: status, search: search);
+  Future<PaginationResponse<SessionModel>> fetchGlobalSessions(int page, {String? status, String? search, int? userId, String? scope}) {
+    return _service.getGlobalSessions(page: page, status: status, search: search, userId: userId, scope: scope);
+  }
+
+  Future<PaginationResponse<UserModel>> fetchGlobalUsers(int page, {String? search}) {
+    return _service.getGlobalUsers(page: page, search: search);
   }
 
   Future<SessionModel> createSession(Map<String, dynamic> data) async {
