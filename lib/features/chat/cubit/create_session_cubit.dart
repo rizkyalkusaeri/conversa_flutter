@@ -36,7 +36,7 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
   }
 
   // Dipanggil ketika dropdown Kategori berubah
-  Future<void> onCategorySelected(int categoryId) async {
+  Future<void> onCategorySelected(int categoryId, String? tujuan) async {
     if (state is CreateSessionFormState) {
       final currentState = state as CreateSessionFormState;
       
@@ -50,20 +50,52 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       ));
 
       try {
-        final futures = await Future.wait([
-          _repository.getSubCategories(categoryId),
-          _repository.getResolvers(categoryId),
-        ]);
+        final subCategories = await _repository.getSubCategories(categoryId);
+        List<MasterDataModel> resolvers = [];
+        if (tujuan != null && tujuan.isNotEmpty) {
+          resolvers = await _repository.getResolvers(categoryId, tujuan: tujuan);
+        }
 
         final newState = currentState.copyWith(
           isLoadingCategoryData: false,
-          subCategories: futures[0],
-          resolvers: futures[1],
+          subCategories: subCategories,
+          resolvers: resolvers,
         );
         _lastFormState = newState;
         emit(newState);
       } catch (e) {
         emit(CreateSessionError("Gagal mengambil subordinat kategori: ${ErrorHelper.getFriendlyError(e)}"));
+        if (_lastFormState != null) emit(_lastFormState!);
+      }
+    }
+  }
+
+  // Dipanggil ketika dropdown Tujuan berubah
+  Future<void> onTujuanSelected(String tujuan, int? categoryId) async {
+    if (state is CreateSessionFormState) {
+      final currentState = state as CreateSessionFormState;
+      
+      if (categoryId == null) {
+        // Belum bisa fetch resolver karena kategori belum dipilih
+        return;
+      }
+
+      emit(currentState.copyWith(
+        isLoadingCategoryData: true,
+        resolvers: [],
+      ));
+
+      try {
+        final resolvers = await _repository.getResolvers(categoryId, tujuan: tujuan);
+
+        final newState = currentState.copyWith(
+          isLoadingCategoryData: false,
+          resolvers: resolvers,
+        );
+        _lastFormState = newState;
+        emit(newState);
+      } catch (e) {
+        emit(CreateSessionError("Gagal mengambil data resolver: ${ErrorHelper.getFriendlyError(e)}"));
         if (_lastFormState != null) emit(_lastFormState!);
       }
     }

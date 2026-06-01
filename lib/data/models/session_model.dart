@@ -46,6 +46,7 @@ class SessionModel {
   final String? feedback;
   final int unreadCount;
   final LatestChatModel? latestChat;
+  final String? tujuan;
 
   SessionModel({
     required this.id,
@@ -72,6 +73,7 @@ class SessionModel {
     this.feedback,
     required this.unreadCount,
     this.latestChat,
+    this.tujuan,
   });
 
   factory SessionModel.fromJson(Map<String, dynamic> json) {
@@ -100,6 +102,7 @@ class SessionModel {
       feedback: json['feedback'],
       unreadCount: json['unread_count'] ?? 0,
       latestChat: json['latest_chat'] != null ? LatestChatModel.fromJson(json['latest_chat']) : null,
+      tujuan: json['tujuan'],
     );
   }
 }

@@ -80,7 +80,7 @@ class SessionRepository {
     return _service.getMasterData('/master/topics', 'topic_name', queryParams: params);
   }
       
-  Future<List<MasterDataModel>> getResolvers(int categoryId, {String? search}) {
-    return _service.getResolvers(categoryId: categoryId, search: search);
+  Future<List<MasterDataModel>> getResolvers(int categoryId, {String? search, String? tujuan}) {
+    return _service.getResolvers(categoryId: categoryId, search: search, tujuan: tujuan);
   }
 }

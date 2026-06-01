@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
-import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import '../cubit/search_cubit.dart';
 import '../cubit/search_state.dart';
 import '../cubit/global_chat_cubit.dart';
@@ -18,7 +17,8 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
   final ScrollController _sessionsScrollController = ScrollController();
   final ScrollController _usersScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -136,10 +136,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: [
-                  _buildSessionsTab(),
-                  _buildUsersTab(),
-                ],
+                children: [_buildSessionsTab(), _buildUsersTab()],
               ),
             ),
           ],
@@ -185,7 +182,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             ),
             child: Row(
               children: [
-                const Icon(Icons.filter_alt_outlined, size: 16, color: AppColors.primary),
+                const Icon(
+                  Icons.filter_alt_outlined,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -201,7 +202,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   onTap: () {
                     _cubit.clearUserFilter();
                   },
-                  child: const Icon(Icons.close_rounded, size: 18, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
               ],
             ),
@@ -339,16 +344,11 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                         return const Padding(
                           padding: EdgeInsets.all(16.0),
                           child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         );
                       }
-                      return _buildSessionTile(
-                        context,
-                        state.sessions[index],
-                      );
+                      return _buildSessionTile(context, state.sessions[index]);
                     },
                   ),
                 );
@@ -391,9 +391,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
-                    onPressed: () => context
-                        .read<SearchCubit>()
-                        .loadInitial(searchQuery: ''),
+                    onPressed: () => context.read<SearchCubit>().loadInitial(
+                      searchQuery: '',
+                    ),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     label: const Text('Coba Lagi'),
                     style: OutlinedButton.styleFrom(
@@ -417,7 +417,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             children: [
               if (showSubordinatesBtn)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -462,8 +465,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                           itemCount: state.usersHasReachedMax
                               ? users.length
                               : users.length + 1,
-                          separatorBuilder: (context, index) =>
-                              const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: Color(0xFFF5F5F5),
+                          ),
                           itemBuilder: (context, index) {
                             if (index >= users.length) {
                               return const Padding(
@@ -478,9 +483,13 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                             final user = users[index];
                             return ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: AppColors.primary.withOpacity(0.1),
+                                backgroundColor: AppColors.primary.withOpacity(
+                                  0.1,
+                                ),
                                 child: Text(
-                                  user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
+                                  user.fullName.isNotEmpty
+                                      ? user.fullName[0].toUpperCase()
+                                      : 'U',
                                   style: const TextStyle(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.bold,
@@ -501,10 +510,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                                   color: Colors.grey.shade600,
                                 ),
                               ),
-                              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
                               onTap: () {
                                 _cubit.selectUserFilter(user);
-                                _tabController.animateTo(0); // Switch to Sessions tab
+                                _tabController.animateTo(
+                                  0,
+                                ); // Switch to Sessions tab
                               },
                             );
                           },
@@ -670,7 +684,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       session.requesterName ?? '-',
                       'Pemohon',
                       onTap: session.requesterId != null
-                          ? () => UserProfilePopup.show(context, session.requesterId!)
+                          ? () => UserProfilePopup.show(
+                              context,
+                              session.requesterId!,
+                            )
                           : null,
                     ),
                   ),
@@ -683,7 +700,10 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       session.resolverName ?? 'Menunggu',
                       'Penyelesai',
                       onTap: session.resolverId != null
-                          ? () => UserProfilePopup.show(context, session.resolverId!)
+                          ? () => UserProfilePopup.show(
+                              context,
+                              session.resolverId!,
+                            )
                           : null,
                     ),
                   ),
@@ -696,7 +716,12 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildPersonChip(IconData icon, String name, String role, {VoidCallback? onTap}) {
+  Widget _buildPersonChip(
+    IconData icon,
+    String name,
+    String role, {
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -789,14 +814,16 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   'Pemohon',
                   session.requesterName ?? '-',
                   onTap: session.requesterId != null
-                      ? () => UserProfilePopup.show(context, session.requesterId!)
+                      ? () =>
+                            UserProfilePopup.show(context, session.requesterId!)
                       : null,
                 ),
                 _buildDetailRow(
                   'Penyelesai',
                   session.resolverName ?? 'Menunggu',
                   onTap: session.resolverId != null
-                      ? () => UserProfilePopup.show(context, session.resolverId!)
+                      ? () =>
+                            UserProfilePopup.show(context, session.resolverId!)
                       : null,
                 ),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
@@ -871,7 +898,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                   fontSize: 12,
                   color: onTap != null ? AppColors.primary : AppColors.textDark,
                   decoration: onTap != null ? TextDecoration.underline : null,
-                  fontWeight: onTap != null ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: onTap != null
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             ),

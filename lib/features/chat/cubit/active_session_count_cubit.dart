@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'package:fifgroup_android_ticketing/core/services/realtime_event_bus.dart';
+import 'package:fifgroup_android_ticketing/core/services/badge_service.dart';
 import 'active_session_count_state.dart';
 
 class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
@@ -25,7 +26,9 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
       // Using limit=1 would be more efficient if the backend supports it, 
       // but fetchSessions defaults limit to 20 inside SessionService.
       final response = await _repository.fetchSessions('active', 1);
-      emit(ActiveSessionCountLoaded(response.meta.total));
+      final count = response.meta.total;
+      await BadgeService.updateBadge(count);
+      emit(ActiveSessionCountLoaded(count));
     } catch (e) {
       emit(ActiveSessionCountError(e.toString().replaceFirst('Exception: ', '')));
     }

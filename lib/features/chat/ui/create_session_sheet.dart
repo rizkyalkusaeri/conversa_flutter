@@ -21,6 +21,7 @@ class CreateSessionSheet extends StatefulWidget {
 }
 
 class _CreateSessionSheetState extends State<CreateSessionSheet> {
+  String? _selectedTujuan;
   int? _selectedCategoryId;
   MasterDataModel? _selectedCategoryModel;
 
@@ -51,12 +52,13 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
   void _submit(BuildContext context, bool isUniqueIdRequired) {
     setState(() => _submitError = null);
     if (_formKey.currentState!.validate()) {
-      if (_selectedCategoryId == null ||
+      if (_selectedTujuan == null ||
+          _selectedCategoryId == null ||
           _selectedSubCategoryId == null ||
           _selectedResolverId == null) {
         _showErrorSnack(
           context,
-          'Kategori, Sub Kategori, dan Pencarian Resolver harus dipilih.',
+          'Tujuan, Kategori, Sub Kategori, dan Pencarian Resolver harus dipilih.',
         );
         return;
       }
@@ -66,6 +68,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
       }
 
       context.read<CreateSessionCubit>().submitSession({
+        'tujuan': _selectedTujuan,
         'category_id': _selectedCategoryId,
         'sub_category_id': _selectedSubCategoryId,
         'topic_id': _selectedTopicId,
@@ -279,6 +282,62 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                   ],
                                 ),
                               ),
+                            FormLabel(text: "TUJUAN"),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                // ignore: deprecated_member_use
+                                value: _selectedTujuan,
+                                hint: const Text(
+                                  "Pilih Tujuan (Cabang / HO)",
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                ),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Color(0xFF4B5563),
+                                ),
+                                style: const TextStyle(
+                                  color: AppColors.textDark,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'Cabang',
+                                    child: Text('Cabang'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'HO',
+                                    child: Text('HO'),
+                                  ),
+                                ],
+                                validator: (v) => v == null ? "Tujuan wajib dipilih" : null,
+                                onChanged: (value) {
+                                  if (value != null && value != _selectedTujuan) {
+                                    setState(() {
+                                      _selectedTujuan = value;
+                                      _selectedResolverId = null;
+                                      _selectedResolverModel = null;
+                                    });
+                                    context.read<CreateSessionCubit>().onTujuanSelected(value, _selectedCategoryId);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
                             FormLabel(text: "KATEGORI"),
                             SearchableDropdownField(
                               hintText: "Pilih Kategori",
@@ -302,7 +361,7 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                   });
                                   context
                                       .read<CreateSessionCubit>()
-                                      .onCategorySelected(item.id);
+                                      .onCategorySelected(item.id, _selectedTujuan);
                                 }
                               },
                             ),
@@ -387,11 +446,11 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
                                   Icons.search,
                                   color: AppColors.primary,
                                 ),
-                                onSearch: (keyword) =>
-                                    _sessionRepo.getResolvers(
-                                      _selectedCategoryId!,
-                                      search: keyword,
-                                    ),
+                                onSearch: (keyword) => _sessionRepo.getResolvers(
+                                  _selectedCategoryId!,
+                                  search: keyword,
+                                  tujuan: _selectedTujuan,
+                                ),
                                 onChanged: (item) {
                                   setState(() {
                                     if (item != null) {

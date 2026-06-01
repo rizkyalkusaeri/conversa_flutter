@@ -5,6 +5,7 @@ import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
 import '../../../../core/storage/storage_manager.dart';
 import '../../../../core/network/echo_service.dart';
+import 'package:fifgroup_android_ticketing/core/services/badge_service.dart';
 
 class AppAuthCubit extends Cubit<AppAuthState> {
   final AuthRepository _authRepository;
@@ -42,6 +43,9 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     // Normal logout (koneksi masih valid)
     await _authRepository.logout();
     
+    // Reset launcher badge
+    await BadgeService.clearBadge();
+    
     // Putuskan koneksi socket / Echo
     try {
       await EchoService.disconnect();
@@ -59,6 +63,9 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   Future<void> forceLogout() async {
     // 1. Bersihkan storage lokal
     await StorageManager.clearAuth();
+    
+    // Reset launcher badge
+    await BadgeService.clearBadge();
     
     // 2. Putuskan koneksi socket / Echo
     try {

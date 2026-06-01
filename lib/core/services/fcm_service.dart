@@ -8,6 +8,7 @@ import 'navigation_service.dart';
 import '../network/api_config.dart';
 import '../storage/storage_manager.dart';
 import '../network/echo_service.dart';
+import 'badge_service.dart';
 
 /// Background message handler — WAJIB top-level function (bukan method)
 @pragma('vm:entry-point')
@@ -16,8 +17,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint(
     'FCM [Background]: ${message.notification?.title} / ${message.data}',
   );
-  // flutter_local_notifications tidak bisa dipanggil di background isolate
-  // FCM akan otomatis tampilkan system notification dari data.notification
+
+  // Perbarui badge launcher jika terdapat data active_sessions_count pada payload
+  final activeSessionsCountStr = message.data['active_sessions_count'];
+  if (activeSessionsCountStr != null) {
+    final count = int.tryParse(activeSessionsCountStr.toString());
+    if (count != null) {
+      await BadgeService.updateBadge(count);
+    }
+  }
 }
 
 class FcmService {

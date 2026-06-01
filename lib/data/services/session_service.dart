@@ -243,10 +243,11 @@ class SessionService {
   }
 
   /// Khusus untuk endpoint resolvers — parse role dan jabatan sebagai subtitle
-  Future<List<MasterDataModel>> getResolvers({required int categoryId, String? search}) async {
+  Future<List<MasterDataModel>> getResolvers({required int categoryId, String? search, String? tujuan}) async {
     try {
       final Map<String, dynamic> queryParams = {'category_id': categoryId};
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (tujuan != null && tujuan.isNotEmpty) queryParams['tujuan'] = tujuan;
 
       final response = await _dio.get('/master/resolvers', queryParameters: queryParams);
       final listData = response.data['data'] as List<dynamic>? ?? [];
