@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'badge_service.dart';
 
 // ---------------------------------------------------------------------------
 // Deterministic Notification IDs
@@ -135,6 +136,7 @@ class NotificationService {
       priority: Priority.high,
       ticker: 'ticker',
       icon: 'ic_notification',
+      number: BadgeService.currentBadgeCount,
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(

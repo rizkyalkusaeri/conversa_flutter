@@ -19,7 +19,7 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
     });
   }
 
-  Future<void> fetchCount() async {
+  Future<int> fetchCount() async {
     emit(ActiveSessionCountLoading());
     try {
       // Fetch the first page of active sessions to get the meta.total count
@@ -29,8 +29,10 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
       final count = response.meta.total;
       await BadgeService.updateBadge(count);
       emit(ActiveSessionCountLoaded(count));
+      return count;
     } catch (e) {
       emit(ActiveSessionCountError(e.toString().replaceFirst('Exception: ', '')));
+      return 0;
     }
   }
 

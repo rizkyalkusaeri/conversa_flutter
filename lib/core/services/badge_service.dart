@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 class BadgeService {
   BadgeService._();
 
+  static int currentBadgeCount = 0;
+
   /// Memperbarui badge launcher dengan jumlah tertentu
   static Future<void> updateBadge(int count) async {
+    currentBadgeCount = count;
     try {
       final isSupported = await AppBadgePlus.isSupported();
       if (isSupported) {
@@ -21,6 +24,7 @@ class BadgeService {
 
   /// Menghapus/mereset badge launcher menjadi 0
   static Future<void> clearBadge() async {
+    currentBadgeCount = 0;
     try {
       final isSupported = await AppBadgePlus.isSupported();
       if (isSupported) {

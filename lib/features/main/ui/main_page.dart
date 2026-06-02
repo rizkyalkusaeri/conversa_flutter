@@ -167,8 +167,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  void _onSessionCreated(dynamic data) {
+  void _onSessionCreated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionCreated received: $data');
+
+    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    if (mounted) {
+      await context.read<ActiveSessionCountCubit>().fetchCount();
+    }
 
     // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -186,8 +191,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  void _onSessionUpdated(dynamic data) {
+  void _onSessionUpdated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionUpdated received: $data');
+
+    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    if (mounted) {
+      await context.read<ActiveSessionCountCubit>().fetchCount();
+    }
 
     // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -212,7 +222,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
-  void _onNewMessageReceived(dynamic data) {
+  void _onNewMessageReceived(dynamic data) async {
     if (data == null) return;
 
     final sessionUuid = data['session_uuid'] as String?;
@@ -227,6 +237,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         'Echo [MainPage]: MessageSent untuk sesi aktif ($sessionUuid), skip notifikasi',
       );
       return;
+    }
+
+    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    if (mounted) {
+      await context.read<ActiveSessionCountCubit>().fetchCount();
     }
 
     // Tampilkan notifikasi untuk pesan dari sesi lain
