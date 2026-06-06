@@ -89,8 +89,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // Bersihkan semua notifikasi saat app kembali ke foreground.
       NotificationService.clearAll();
       // Kalau koneksi Echo putus, panggil reconnect (tanpa re-init/destroy koneksi lama)
-      // Pusher client plugin juga memiliki auto-reconnect native.
-      // Kita tidak boleh memanggil EchoService.init() di sini karena akan bertabrakan dengan native reconnect.
       if (!EchoService.isConnected && _currentUserId != null) {
         debugPrint(
           'App resumed — Echo disconnected, requesting soft reconnect...',
@@ -170,15 +168,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void _onSessionCreated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionCreated received: $data');
 
-    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
     if (mounted) {
-      await context.read<ActiveSessionCountCubit>().fetchCount();
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
     }
 
     // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
 
-    // Tampilkan notifikasi lokal
+    // Tampilkan notifikasi lokal dengan badge count = jumlah sesi aktif
     if (data != null) {
       final ticketNumber = data['ticket_number'] as String?;
       NotificationService.showNotification(
@@ -187,6 +186,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             ? 'Tiket #$ticketNumber telah dibuat.'
             : 'Sesi baru tersedia.',
         notificationId: NotificationId.sessionCreated,
+        badgeCount: activeCount,
       );
     }
   }
@@ -194,9 +194,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void _onSessionUpdated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionUpdated received: $data');
 
-    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
     if (mounted) {
-      await context.read<ActiveSessionCountCubit>().fetchCount();
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
     }
 
     // Refresh session list
@@ -217,6 +218,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               ? 'Status sesi berubah menjadi $status.'
               : 'Sesi telah diperbarui.',
           notificationId: NotificationId.sessionUpdated,
+          badgeCount: activeCount,
         );
       }
     }
@@ -239,12 +241,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Perbarui jumlah sesi aktif terlebih dahulu sebelum menampilkan notifikasi
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
     if (mounted) {
-      await context.read<ActiveSessionCountCubit>().fetchCount();
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
     }
 
-    // Tampilkan notifikasi untuk pesan dari sesi lain
+    // Tampilkan notifikasi dengan badge count = jumlah sesi aktif
     final body = messageType == 'TEXT'
         ? (messageContent ?? 'Pesan baru')
         : (messageType == 'VIDEO' ? '📹 Mengirim video' : '📎 Mengirim lampiran');
@@ -253,6 +256,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       title: '💬 $senderName',
       body: body,
       notificationId: NotificationId.newMessage,
+      badgeCount: activeCount,
     );
 
     // Refresh session list untuk update badge unread

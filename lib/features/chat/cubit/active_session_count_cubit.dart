@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'package:fifgroup_android_ticketing/core/services/realtime_event_bus.dart';
 import 'package:fifgroup_android_ticketing/core/services/badge_service.dart';
@@ -12,7 +14,6 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
   ActiveSessionCountCubit({SessionRepository? repository})
       : _repository = repository ?? SessionRepository(),
         super(ActiveSessionCountInitial()) {
-    // Listen to realtime events to automatically refresh the active session count
     _refreshSubscription =
         RealtimeEventBus.instance.onSessionRefresh.listen((_) {
       fetchCount();
@@ -22,18 +23,39 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
   Future<int> fetchCount() async {
     emit(ActiveSessionCountLoading());
     try {
-      // Fetch the first page of active sessions to get the meta.total count
-      // Using limit=1 would be more efficient if the backend supports it, 
-      // but fetchSessions defaults limit to 20 inside SessionService.
       final response = await _repository.fetchSessions('active', 1);
       final count = response.meta.total;
-      await BadgeService.updateBadge(count);
+
+      // Simpan ke in-memory cache
+      BadgeService.setCount(count);
+
+      // Set badge launcher secara eksplisit via app_badge_plus.
+      // Ini terpisah dari notifikasi sehingga badge TIDAK dipengaruhi
+      // jumlah notifikasi di tray — badge = jumlah sesi aktif yang sesungguhnya.
+      _applyBadge(count);
+
       emit(ActiveSessionCountLoaded(count));
       return count;
     } catch (e) {
       emit(ActiveSessionCountError(e.toString().replaceFirst('Exception: ', '')));
       return 0;
     }
+  }
+
+  /// Set badge launcher menggunakan app_badge_plus.
+  /// Fire-and-forget (tidak di-await) agar tidak memblokir UI.
+  static void _applyBadge(int count) {
+    AppBadgePlus.isSupported().then((supported) {
+      if (supported) {
+        AppBadgePlus.updateBadge(count).then((_) {
+          debugPrint('Badge launcher → $count');
+        }).catchError((e) {
+          debugPrint('Badge update error: $e');
+        });
+      }
+    }).catchError((e) {
+      debugPrint('Badge isSupported error: $e');
+    });
   }
 
   @override

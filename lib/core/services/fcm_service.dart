@@ -8,7 +8,6 @@ import 'navigation_service.dart';
 import '../network/api_config.dart';
 import '../storage/storage_manager.dart';
 import '../network/echo_service.dart';
-import 'badge_service.dart';
 
 /// Background message handler — WAJIB top-level function (bukan method)
 @pragma('vm:entry-point')
@@ -17,15 +16,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint(
     'FCM [Background]: ${message.notification?.title} / ${message.data}',
   );
-
-  // Perbarui badge launcher jika terdapat data active_sessions_count pada payload
-  final activeSessionsCountStr = message.data['active_sessions_count'];
-  if (activeSessionsCountStr != null) {
-    final count = int.tryParse(activeSessionsCountStr.toString());
-    if (count != null) {
-      await BadgeService.updateBadge(count);
-    }
-  }
+  // Badge count dikelola melalui notifikasi yang ditampilkan FCM secara native.
+  // Tidak ada aksi tambahan di sini.
 }
 
 class FcmService {

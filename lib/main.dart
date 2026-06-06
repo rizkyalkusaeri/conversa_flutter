@@ -38,10 +38,6 @@ void main() async {
   // unawaited: tidak memblokir startup, status awal akan diupdate async
   await ConnectivityService.instance.init();
 
-  // CATATAN: NotificationService.init() & FcmService.init() TIDAK dipanggil di sini
-  // karena keduanya membutuhkan auth token yang baru tersedia setelah login.
-  // Keduanya dipanggil di MainPage._initRealTime() setelah auth ready.
-
   runApp(const MyApp());
 }
 

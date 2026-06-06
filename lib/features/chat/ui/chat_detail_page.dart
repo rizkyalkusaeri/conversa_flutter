@@ -24,6 +24,7 @@ import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import 'widgets/complete_session_dialog.dart';
 import 'widgets/image_preview_dialog.dart';
+import 'widgets/confirmation_dialog.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
@@ -670,8 +671,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           IconButton(
             icon: const Icon(Icons.cancel, color: Colors.red),
             tooltip: 'Tolak',
-            onPressed: () {
-              context.read<SessionActionCubit>().rejectClose(session.id);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Tolak Permintaan Selesai',
+                  message: 'Apakah Anda yakin ingin menolak permintaan penyelesaian sesi ini?',
+                  confirmLabel: 'Ya, Tolak',
+                  cancelLabel: 'Batal',
+                  icon: Icons.cancel,
+                  iconColor: Colors.red,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().rejectClose(session.id);
+              }
             },
           ),
         if (showComplete)
@@ -679,15 +694,34 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             icon: const Icon(Icons.check_circle, color: Colors.green),
             tooltip: 'Selesaikan',
             onPressed: () async {
-              final result = await showDialog<SessionModel>(
-                context: context,
-                builder: (ctx) => BlocProvider.value(
-                  value: context.read<SessionActionCubit>(),
-                  child: CompleteSessionDialog(session: session),
-                ),
-              );
-              if (result != null) {
-                _handleActionSuccess(result);
+              if (session.isFeedbackRequired) {
+                final result = await showDialog<SessionModel>(
+                  context: context,
+                  builder: (ctx) => BlocProvider.value(
+                    value: context.read<SessionActionCubit>(),
+                    child: CompleteSessionDialog(session: session),
+                  ),
+                );
+                if (!mounted) return;
+                if (result != null) {
+                  _handleActionSuccess(result);
+                }
+              } else {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => const ConfirmationDialog(
+                    title: 'Selesaikan Sesi',
+                    message: 'Apakah Anda yakin ingin menyelesaikan sesi ini? Status tiket akan berubah menjadi CLOSED.',
+                    confirmLabel: 'Ya, Selesaikan',
+                    cancelLabel: 'Batal',
+                    icon: Icons.check_circle,
+                    iconColor: Colors.green,
+                  ),
+                );
+                if (!mounted) return;
+                if (confirm == true) {
+                  context.read<SessionActionCubit>().completeSession(session.id);
+                }
               }
             },
           ),
@@ -695,8 +729,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           IconButton(
             icon: const Icon(Icons.access_time_filled, color: Colors.amber),
             tooltip: 'Minta Selesai',
-            onPressed: () {
-              context.read<SessionActionCubit>().requestClose(session.id);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Minta Selesai Sesi',
+                  message: 'Apakah Anda yakin ingin meminta penyelesaian sesi ini?',
+                  confirmLabel: 'Ya, Kirim',
+                  cancelLabel: 'Batal',
+                  icon: Icons.access_time_filled,
+                  iconColor: Colors.amber,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().requestClose(session.id);
+              }
             },
           ),
         if (status == 'CLOSED') ...[

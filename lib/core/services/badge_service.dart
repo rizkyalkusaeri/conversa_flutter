@@ -1,38 +1,33 @@
-import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/foundation.dart';
 
+/// BadgeService — cache in-memory untuk jumlah sesi aktif.
+///
+/// Nilai ini digunakan sebagai `number` field pada notifikasi yang ditampilkan,
+/// sehingga launcher icon menampilkan badge count sesuai jumlah sesi aktif.
+///
+/// Badge count mengikuti siklus notifikasi:
+/// - Ada notifikasi di tray → badge tampil
+/// - Notifikasi di-clear → badge hilang (perilaku yang diharapkan)
+/// - Buka app → notifikasi di-clear → badge hilang
 class BadgeService {
   BadgeService._();
 
-  static int currentBadgeCount = 0;
+  static int _currentCount = 0;
 
-  /// Memperbarui badge launcher dengan jumlah tertentu
-  static Future<void> updateBadge(int count) async {
-    currentBadgeCount = count;
-    try {
-      final isSupported = await AppBadgePlus.isSupported();
-      if (isSupported) {
-        await AppBadgePlus.updateBadge(count);
-        debugPrint('BadgeService: Badge launcher diperbarui menjadi $count');
-      } else {
-        debugPrint('BadgeService: Badge launcher tidak didukung pada perangkat ini');
-      }
-    } catch (e) {
-      debugPrint('BadgeService: Gagal memperbarui badge launcher: $e');
-    }
+  /// Jumlah sesi aktif saat ini (in-memory).
+  /// Digunakan oleh NotificationService sebagai nilai `number` pada notifikasi.
+  static int get currentBadgeCount => _currentCount;
+
+  /// Perbarui cache jumlah sesi aktif.
+  /// Dipanggil oleh [ActiveSessionCountCubit.fetchCount()] setiap kali count berubah.
+  static void setCount(int count) {
+    _currentCount = count;
+    debugPrint('BadgeService: Active session count updated → $count');
   }
 
-  /// Menghapus/mereset badge launcher menjadi 0
-  static Future<void> clearBadge() async {
-    currentBadgeCount = 0;
-    try {
-      final isSupported = await AppBadgePlus.isSupported();
-      if (isSupported) {
-        await AppBadgePlus.updateBadge(0);
-        debugPrint('BadgeService: Badge launcher berhasil dihapus/direset');
-      }
-    } catch (e) {
-      debugPrint('BadgeService: Gagal menghapus badge launcher: $e');
-    }
+  /// Reset count ke 0. Dipanggil saat logout.
+  static void reset() {
+    _currentCount = 0;
+    debugPrint('BadgeService: Count reset → 0');
   }
 }

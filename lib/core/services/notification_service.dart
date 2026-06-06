@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'badge_service.dart';
 
 // ---------------------------------------------------------------------------
 // Deterministic Notification IDs
@@ -108,12 +107,17 @@ class NotificationService {
   /// [channelId] menentukan notification channel Android yang digunakan.
   /// Default: 'fifgroup_chat_channel'.
   /// Gunakan 'fifgroup_thread_channel' untuk notifikasi thread baru.
+  ///
+  /// [badgeCount] — jumlah yang ditampilkan sebagai badge launcher icon.
+  /// Launcher Android membaca nilai ini dari field `number` pada notifikasi.
+  /// Badge tampil selama notifikasi ada di tray; hilang saat notifikasi di-clear.
   static Future<void> showNotification({
     required String title,
     required String body,
     String? payload,
     String channelId = 'fifgroup_chat_channel',
     int? notificationId,
+    int? badgeCount,
   }) async {
     final channelName = channelId == 'fifgroup_thread_channel'
         ? 'FIFGROUP Threads'
@@ -136,7 +140,7 @@ class NotificationService {
       priority: Priority.high,
       ticker: 'ticker',
       icon: 'ic_notification',
-      number: BadgeService.currentBadgeCount,
+      number: badgeCount,  // badge count ditampilkan selama notif ada di tray
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(

@@ -42,9 +42,9 @@ class AppAuthCubit extends Cubit<AppAuthState> {
     emit(AppAuthLoading());
     // Normal logout (koneksi masih valid)
     await _authRepository.logout();
-    
-    // Reset launcher badge
-    await BadgeService.clearBadge();
+
+    // Reset in-memory badge count
+    BadgeService.reset();
     
     // Putuskan koneksi socket / Echo
     try {
@@ -63,9 +63,9 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   Future<void> forceLogout() async {
     // 1. Bersihkan storage lokal
     await StorageManager.clearAuth();
-    
-    // Reset launcher badge
-    await BadgeService.clearBadge();
+
+    // Reset in-memory badge count
+    BadgeService.reset();
     
     // 2. Putuskan koneksi socket / Echo
     try {

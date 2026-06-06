@@ -4,6 +4,7 @@ import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../cubit/session_action_cubit.dart';
 import '../../cubit/session_action_state.dart';
+import 'confirmation_dialog.dart';
 
 class CompleteSessionDialog extends StatefulWidget {
   final SessionModel session;
@@ -18,7 +19,7 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
   int _rating = 0;
   final TextEditingController _feedbackController = TextEditingController();
 
-  void _submit() {
+  void _submit() async {
     if (widget.session.isFeedbackRequired && _rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -29,11 +30,27 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
       return;
     }
 
-    context.read<SessionActionCubit>().completeSession(
-      widget.session.id,
-      rating: widget.session.isFeedbackRequired ? _rating : null,
-      feedback: widget.session.isFeedbackRequired ? _feedbackController.text : null,
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => const ConfirmationDialog(
+        title: 'Selesaikan Sesi',
+        message: 'Apakah Anda yakin ingin menyelesaikan sesi ini?',
+        confirmLabel: 'Ya, Selesaikan',
+        cancelLabel: 'Batal',
+        icon: Icons.check_circle,
+        iconColor: Colors.green,
+      ),
     );
+
+    if (confirm == true && mounted) {
+      context.read<SessionActionCubit>().completeSession(
+        widget.session.id,
+        rating: widget.session.isFeedbackRequired ? _rating : null,
+        feedback: widget.session.isFeedbackRequired ? _feedbackController.text.trim().isEmpty
+            ? null
+            : _feedbackController.text.trim() : null,
+      );
+    }
   }
 
   @override
