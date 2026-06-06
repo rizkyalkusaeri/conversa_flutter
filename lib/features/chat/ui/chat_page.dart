@@ -14,6 +14,8 @@ import '../cubit/chat_detail_cubit.dart';
 import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/services/notification_service.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -65,7 +67,7 @@ class _ChatPageState extends State<ChatPage> {
       return null;
     });
 
-    bool isCabang = authRole == 'Cabang';
+    bool canCreateSession = authRole != null && authRole != 'Admin';
 
     return BlocProvider.value(
       value: _cubit,
@@ -91,7 +93,7 @@ class _ChatPageState extends State<ChatPage> {
             const Expanded(child: SessionListView()),
           ],
         ),
-        floatingActionButton: isCabang
+        floatingActionButton: canCreateSession
             ? FloatingActionButton(
                 heroTag: 'chat_fab',
                 onPressed: () => _showCreateSessionModal(context),
@@ -262,9 +264,43 @@ class _SessionListViewState extends State<SessionListView> {
             }
             if (state is SessionListError) {
               return Center(
-                child: Text(
-                  state.message,
-                  style: const TextStyle(color: Colors.red),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        size: 56,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          context.read<SessionListCubit>().loadInitial(searchQuery: '');
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Coba Lagi'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -394,6 +430,10 @@ class _SessionListViewState extends State<SessionListView> {
         borderRadius: BorderRadius.circular(14),
         onTap: () {
           final cubit = context.read<SessionListCubit>();
+          // Hapus semua notifikasi saat user membuka session dari dalam app.
+          // Ini menangani kasus: notif pesan masuk saat app aktif, lalu
+          // user langsung buka session via list tanpa tap notifikasi.
+          NotificationService.clearAll();
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -436,14 +476,24 @@ class _SessionListViewState extends State<SessionListView> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: () {
+                  final opponentId = (currentUserName == session.requesterName)
+                      ? session.resolverId
+                      : session.requesterId;
+                  if (opponentId != null) {
+                    UserProfilePopup.show(context, opponentId);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -671,8 +721,8 @@ class _SessionListViewState extends State<SessionListView> {
                 _buildDetailRow('Topik', session.topicName ?? '-'),
                 if (session.noAppl != null && session.noAppl!.isNotEmpty)
                   _buildDetailRow('No. Appl', session.noAppl!),
-                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
-                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow('Pemohon', session.requesterName ?? '-'),
+                _buildDetailRow('Penyelesai', session.resolverName ?? 'Menunggu'),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(
@@ -688,6 +738,8 @@ class _SessionListViewState extends State<SessionListView> {
                     onPressed: () {
                       final cubit = context.read<SessionListCubit>();
                       Navigator.pop(ctx);
+                      // Hapus semua notifikasi saat user membuka session dari popup detail.
+                      NotificationService.clearAll();
                       Navigator.push(
                         context,
                         MaterialPageRoute(

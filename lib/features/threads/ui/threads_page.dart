@@ -12,6 +12,7 @@ import 'widgets/thread_card.dart';
 import 'thread_detail_page.dart';
 import 'create_thread_page.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import '../../../core/services/notification_service.dart';
 
 class ThreadsPage extends StatefulWidget {
   const ThreadsPage({super.key});
@@ -33,10 +34,17 @@ class _ThreadsPageState extends State<ThreadsPage> {
     _cubit = ThreadListCubit()..loadInitial();
     _scrollController.addListener(_onScroll);
 
+    // Bersihkan notifikasi thread saat halaman pertama kali dibuka.
+    // Ini sebagai secondary defense jika user langsung membuka ThreadsPage
+    // tanpa melalui _onItemTapped di MainPage.
+    NotificationService.cancelByContext(ActiveAppPage.threads);
+
     // Auto-refresh saat signal dikirim dari MainPage (misal pindah tab)
     _refreshSubscription = RealtimeEventBus.instance.onThreadRefresh.listen((_) {
       if (mounted) {
         _cubit.loadInitial();
+        // Bersihkan notifikasi thread saat tab Threads di-tap kembali.
+        NotificationService.cancelByContext(ActiveAppPage.threads);
       }
     });
   }
@@ -163,14 +171,14 @@ class _ThreadsPageState extends State<ThreadsPage> {
               if (state is ThreadListError) {
                 return Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(32),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: AppColors.error,
-                          size: 48,
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 56,
+                          color: Colors.grey.shade400,
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -179,17 +187,23 @@ class _ThreadsPageState extends State<ThreadsPage> {
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 14,
+                            height: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () =>
-                              context.read<ThreadListCubit>().loadInitial(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () => context
+                              .read<ThreadListCubit>()
+                              .loadInitial(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Coba Lagi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          child: const Text('Retry'),
                         ),
                       ],
                     ),
@@ -238,6 +252,9 @@ class _ThreadsPageState extends State<ThreadsPage> {
                             .toggleLike(thread.id),
                         onEdit: (thread.author.id == _currentUserId)
                             ? () => _navigateToEditThread(context, thread)
+                            : null,
+                        onDelete: (thread.author.id == _currentUserId)
+                            ? () => _showDeleteConfirmation(context, thread.id)
                             : null,
                       );
                     },
@@ -293,6 +310,10 @@ class _ThreadsPageState extends State<ThreadsPage> {
   }
 
   void _navigateToDetail(BuildContext context, String threadUuid) async {
+    // Hapus semua notifikasi saat user membuka thread dari dalam app.
+    // Menangani kasus: notif thread masuk saat app aktif, lalu user
+    // langsung buka thread via list tanpa tap notifikasi.
+    NotificationService.clearAll();
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -323,5 +344,44 @@ class _ThreadsPageState extends State<ThreadsPage> {
     if (result == true && mounted) {
       _cubit.loadInitial();
     }
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String threadUuid) {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Thread'),
+        content: const Text('Apakah Anda yakin ingin menghapus thread ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _cubit.deleteThread(threadUuid);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Thread berhasil dihapus'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal menghapus thread: $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

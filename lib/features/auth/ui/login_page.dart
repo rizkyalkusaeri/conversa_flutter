@@ -2,16 +2,48 @@
 import 'package:fifgroup_android_ticketing/core/widgets/form_label.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/form_text_field.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/app_version_text.dart';
+import 'package:fifgroup_android_ticketing/core/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/update_service.dart';
 import '../cubit/login_cubit.dart';
 
-class LoginPage extends StatelessWidget {
-  LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Cek update saat login page dibuka — berlaku saat pertama buka app
+    // maupun setelah session expired dan user dikembalikan ke login
+    _checkUpdate();
+  }
+
+  Future<void> _checkUpdate() async {
+    final versionInfo = await UpdateService.checkForUpdate();
+    if (versionInfo != null && mounted) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        await UpdateDialog.show(context, versionInfo);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +81,11 @@ class LoginPage extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 80),
-                  // LOGO (Pakai Container Oranye Bulat)
+                  // LOGO
                   Center(
                     child: SizedBox(
                       child: const Image(
-                        image: AssetImage("assets/images/1.png"),
+                        image: AssetImage("assets/images/logo_filink.png"),
                         width: 150,
                         height: 150,
                       ),
@@ -89,17 +121,6 @@ class LoginPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       FormLabel(text: "PASSWORD"),
-                      // TextButton(
-                      //   onPressed: () {},
-                      //   child: const Text(
-                      //     "FORGOT PASSWORD?",
-                      //     style: TextStyle(
-                      //       color: AppColors.primary,
-                      //       fontSize: 12,
-                      //       fontWeight: FontWeight.bold,
-                      //     ),
-                      //   ),
-                      // ),
                     ],
                   ),
                   FormTextField(
@@ -112,6 +133,34 @@ class LoginPage extends StatelessWidget {
                     },
                   ),
 
+                  // Banner rate-limit — tampil hanya saat IP sedang diblokir
+                  if (state.isRateLimited) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock_clock_outlined, color: AppColors.error, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Login diblokir sementara. Coba lagi dalam ${state.retryAfterSeconds} detik.',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 30),
 
                   // BUTTON LOGIN
@@ -119,28 +168,21 @@ class LoginPage extends StatelessWidget {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: state.isLoading
+                      // Nonaktifkan tombol saat loading ATAU sedang rate-limited
+                      onPressed: (state.isLoading || state.isRateLimited)
                           ? null
                           : () => context.read<LoginCubit>().login(
-                              usernameController.text,
-                              passwordController.text,
-                            ),
+                                usernameController.text,
+                                passwordController.text,
+                              ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: Colors.grey.shade400,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
                       ),
-                      child: state.isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "Login",
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      child: _buildButtonContent(state),
                     ),
                   ),
 
@@ -156,7 +198,31 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  // Widget Helper untuk Label
-
-  // Widget Helper untuk TextField
+  /// Konten tombol login:
+  /// - Loading  → CircularProgressIndicator
+  /// - Blocked  → countdown timer
+  /// - Normal   → teks "Login"
+  Widget _buildButtonContent(LoginState state) {
+    if (state.isLoading) {
+      return const CircularProgressIndicator(color: Colors.white);
+    }
+    if (state.isRateLimited) {
+      return Text(
+        'Coba lagi dalam ${state.retryAfterSeconds}s',
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white70,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+    return const Text(
+      "Login",
+      style: TextStyle(
+        fontSize: 18,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
 }

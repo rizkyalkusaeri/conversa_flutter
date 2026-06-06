@@ -1,7 +1,36 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+// ---------------------------------------------------------------------------
+// Deterministic Notification IDs
+// ---------------------------------------------------------------------------
+// Setiap tipe notifikasi punya ID tetap agar bisa di-cancel secara spesifik.
+// Keuntungan tambahan: notifikasi sejenis akan REPLACE (bukan tumpuk) di tray.
+// ---------------------------------------------------------------------------
+class NotificationId {
+  NotificationId._();
+
+  /// Notifikasi thread baru dari forum diskusi.
+  static const int thread = 1001;
+
+  /// Notifikasi sesi baru (SessionCreated).
+  static const int sessionCreated = 1002;
+
+  /// Notifikasi perubahan status sesi (SessionUpdated).
+  static const int sessionUpdated = 1003;
+
+  /// Notifikasi pesan baru dari sesi lain (MessageSent).
+  static const int newMessage = 1004;
+
+  /// Notifikasi global dari Filament / BroadcastNotificationCreated.
+  static const int globalNotification = 1005;
+}
+
+// ---------------------------------------------------------------------------
+// Active App Page — digunakan oleh cancelByContext()
+// ---------------------------------------------------------------------------
+enum ActiveAppPage { chat, search, threads, profile }
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -12,7 +41,7 @@ class NotificationService {
     await Permission.notification.request();
 
     const AndroidInitializationSettings androidInitializationSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_notification');
 
     const DarwinInitializationSettings iosInitializationSettings =
         DarwinInitializationSettings(
@@ -69,17 +98,26 @@ class NotificationService {
     debugPrint('NotificationService: channel "fifgroup_thread_channel" registered');
   }
 
-  /// Tampilkan local notification.
+  /// Tampilkan local notification dengan ID deterministik.
+  ///
+  /// [notificationId] — gunakan konstanta dari [NotificationId] agar notifikasi
+  /// bisa di-cancel secara spesifik via [cancelById] / [cancelByContext].
+  /// Jika tidak diberikan, akan di-fallback ke ID default berdasarkan [channelId].
   ///
   /// [channelId] menentukan notification channel Android yang digunakan.
-  /// Default: 'fifgroup_chat_channel' agar backward compatible dengan
-  /// semua pemanggil yang sudah ada.
+  /// Default: 'fifgroup_chat_channel'.
   /// Gunakan 'fifgroup_thread_channel' untuk notifikasi thread baru.
+  ///
+  /// [badgeCount] — jumlah yang ditampilkan sebagai badge launcher icon.
+  /// Launcher Android membaca nilai ini dari field `number` pada notifikasi.
+  /// Badge tampil selama notifikasi ada di tray; hilang saat notifikasi di-clear.
   static Future<void> showNotification({
     required String title,
     required String body,
     String? payload,
     String channelId = 'fifgroup_chat_channel',
+    int? notificationId,
+    int? badgeCount,
   }) async {
     final channelName = channelId == 'fifgroup_thread_channel'
         ? 'FIFGROUP Threads'
@@ -88,6 +126,12 @@ class NotificationService {
         ? 'Notifikasi untuk thread baru di forum diskusi.'
         : 'Notifications for incoming messages and session updates.';
 
+    // Fallback ID deterministik berdasarkan channel jika tidak disuplai.
+    final id = notificationId ??
+        (channelId == 'fifgroup_thread_channel'
+            ? NotificationId.thread
+            : NotificationId.newMessage);
+
     final androidDetails = AndroidNotificationDetails(
       channelId,
       channelName,
@@ -95,7 +139,8 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       ticker: 'ticker',
-      icon: '@mipmap/ic_launcher',
+      icon: 'ic_notification',
+      number: badgeCount,  // badge count ditampilkan selama notif ada di tray
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -109,8 +154,6 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    final id = Random().nextInt(100000);
-
     try {
       await _notificationsPlugin.show(
         id: id,
@@ -121,6 +164,64 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint('Error showing local notification: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cancel Helpers
+  // ---------------------------------------------------------------------------
+
+  /// Cancel notifikasi berdasarkan ID spesifik.
+  static Future<void> cancelById(int id) async {
+    try {
+      await _notificationsPlugin.cancel(id: id);
+      debugPrint('NotificationService: cancelled notification id=$id');
+    } catch (e) {
+      debugPrint('NotificationService: error cancelling id=$id — $e');
+    }
+  }
+
+  /// Bersihkan SEMUA notifikasi dari tray sekaligus.
+  ///
+  /// Dipanggil saat app pertama dibuka atau kembali ke foreground (resume),
+  /// sehingga notification tray selalu bersih ketika user aktif menggunakan app.
+  static Future<void> clearAll() async {
+    try {
+      await _notificationsPlugin.cancelAll();
+      debugPrint('NotificationService: all notifications cleared');
+    } catch (e) {
+      debugPrint('NotificationService: error clearing all notifications — $e');
+    }
+  }
+
+  /// Cancel semua notifikasi yang relevan dengan halaman yang sedang aktif.
+  ///
+  /// Dipanggil saat user berpindah tab di [MainPage] atau saat halaman
+  /// tertentu menjadi visible, sehingga notifikasi kontekstual otomatis
+  /// dibersihkan dari tray tanpa menyentuh notifikasi halaman lain.
+  ///
+  /// Mapping konteks → ID notifikasi yang di-cancel:
+  /// - [ActiveAppPage.threads] → [NotificationId.thread]
+  /// - [ActiveAppPage.chat]    → [NotificationId.sessionCreated],
+  ///                             [NotificationId.sessionUpdated],
+  ///                             [NotificationId.newMessage]
+  /// - [ActiveAppPage.profile] / [ActiveAppPage.search] → tidak ada notifikasi spesifik
+  static Future<void> cancelByContext(ActiveAppPage page) async {
+    switch (page) {
+      case ActiveAppPage.threads:
+        await cancelById(NotificationId.thread);
+        break;
+
+      case ActiveAppPage.chat:
+        await cancelById(NotificationId.sessionCreated);
+        await cancelById(NotificationId.sessionUpdated);
+        await cancelById(NotificationId.newMessage);
+        break;
+
+      case ActiveAppPage.search:
+      case ActiveAppPage.profile:
+        // Tidak ada notifikasi spesifik untuk halaman ini.
+        break;
     }
   }
 }

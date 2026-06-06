@@ -34,4 +34,7 @@ class ChatMessageModel {
       senderName: json['sender']?['name'] ?? json['sender_name'],
     );
   }
+
+  bool get isImage => messageType == 'IMAGE';
+  bool get isVideo => messageType == 'VIDEO';
 }

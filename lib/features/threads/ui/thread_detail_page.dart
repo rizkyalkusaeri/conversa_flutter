@@ -13,12 +13,14 @@ import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'widgets/comment_tile.dart';
 import 'create_thread_page.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 class ThreadDetailPage extends StatefulWidget {
   final String threadUuid;
@@ -101,7 +103,22 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           ),
           centerTitle: true,
         ),
-        body: BlocBuilder<ThreadDetailCubit, ThreadDetailState>(
+        body: BlocConsumer<ThreadDetailCubit, ThreadDetailState>(
+          listener: (context, state) {
+            if (state is ThreadDetailCommentError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage),
+                  backgroundColor: AppColors.error,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+              context.read<ThreadDetailCubit>().restoreLoadedState(
+                state.thread,
+                state.comments,
+              );
+            }
+          },
           builder: (context, state) {
             if (state is ThreadDetailLoading) {
               return const Center(
@@ -111,27 +128,43 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
 
             if (state is ThreadDetailError) {
               return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: Colors.grey.shade400,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      state.message,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => context
-                          .read<ThreadDetailCubit>()
-                          .loadThread(widget.threadUuid),
-                      child: const Text('Retry'),
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        size: 56,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: () => context
+                            .read<ThreadDetailCubit>()
+                            .loadThread(widget.threadUuid),
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Coba Lagi'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -278,15 +311,22 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           // Author row
           Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.primaryContainer,
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+              GestureDetector(
+                onTap: () {
+                  if (thread.author.id != null) {
+                    UserProfilePopup.show(context, thread.author.id!);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.primaryContainer,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
@@ -297,70 +337,111 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          thread.author.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: AppColors.textDark,
+                        Flexible(
+                          child: Text(
+                            thread.author.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: AppColors.textDark,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (thread.visibleToLevels.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Builder(builder: (context) {
-                            const maxDisplay = 5; // Detail page boleh lebih banyak
-                            final displayList = thread.visibleToLevels.take(maxDisplay).toList();
-                            final remainingCount = thread.visibleToLevels.length - maxDisplay;
+                        const SizedBox(width: 6),
+                        Text(
+                          '• ${_formatTimeAgo(thread.createdAt)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (thread.visibleToLevels.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Builder(builder: (context) {
+                        const maxDisplay = 3;
+                        final displayList =
+                            thread.visibleToLevels.take(maxDisplay).toList();
+                        final remainingCount =
+                            thread.visibleToLevels.length - maxDisplay;
 
-                            return Wrap(
-                              spacing: 4,
-                              runSpacing: 4,
-                              children: [
-                                ...displayList.map((level) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        return Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            ...displayList.map((level) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withAlpha(25),
+                                    color: AppColors.primary.withAlpha(20),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     level,
                                     style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
                                       color: AppColors.primary,
                                     ),
                                   ),
                                 )),
-                                if (remainingCount > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '+$remainingCount',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
+                            if (remainingCount > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '+$remainingCount lainnya',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade600,
                                   ),
-                              ],
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatDateTime(thread.createdAt),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
+                                ),
+                              ),
+                          ],
+                        );
+                      }),
+                    ],
+                    if (thread.topicName != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withAlpha(20),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.tag,
+                                size: 10, color: AppColors.secondary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '${thread.categoryName} > ${thread.subCategoryName} > ${thread.topicName}',
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.secondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -432,11 +513,27 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 ),
           ],
 
-          // Non-image attachments
-          if (thread.attachments.where((a) => !a.isImage).isNotEmpty) ...[
+          // Video Attachments
+          if (thread.attachments.any((a) => a.isVideo)) ...[
+            const SizedBox(height: 16),
+            ...thread.attachments.where((a) => a.isVideo).map(
+                  (att) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: VideoAttachmentWidget(
+                        videoUrl: '${ApiConfig.imageUrl}${att.url}',
+                      ),
+                    ),
+                  ),
+                ),
+          ],
+
+          // Non-media attachments (Files)
+          if (thread.attachments.where((a) => !a.isImage && !a.isVideo).isNotEmpty) ...[
             const SizedBox(height: 12),
             ...thread.attachments
-                .where((a) => !a.isImage)
+                .where((a) => !a.isImage && !a.isVideo)
                 .map(
                   (att) => GestureDetector(
                     onTap: () =>
@@ -705,21 +802,29 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Kamera'),
+              title: const Text('Ambil Foto'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takePhoto();
               },
             ),
             ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: AppColors.primary,
-              ),
-              title: const Text('Galeri Gambar'),
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
               onTap: () {
                 Navigator.pop(ctx);
-                _pickImages();
+                _takeVideo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.perm_media_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeri Media (Foto & Video)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickMedia();
               },
             ),
             ListTile(
@@ -779,11 +884,23 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
     }
   }
 
-  Future<void> _pickImages() async {
+  Future<void> _takeVideo() async {
+    var status = await Permission.camera.status;
+    if (status.isDenied) await Permission.camera.request();
+    if (!status.isGranted) return;
+
     final picker = ImagePicker();
-    final images = await picker.pickMultiImage(imageQuality: 80);
-    if (images.isNotEmpty) {
-      setState(() => _selectedFiles.addAll(images.map((x) => File(x.path))));
+    final video = await picker.pickVideo(source: ImageSource.camera);
+    if (video != null) {
+      setState(() => _selectedFiles.add(File(video.path)));
+    }
+  }
+
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final media = await picker.pickMultipleMedia();
+    if (media.isNotEmpty) {
+      setState(() => _selectedFiles.addAll(media.map((x) => File(x.path))));
     }
   }
 
@@ -842,14 +959,35 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                           height: 80,
                           fit: BoxFit.cover,
                         )
-                      : Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                            child: Icon(Icons.description, color: Colors.grey),
-                          ),
-                        ),
+                      : ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(
+                          file.path.toLowerCase().split('.').last,
+                        )
+                          ? Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.black.withAlpha(20),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.videocam,
+                                      color: AppColors.primary, size: 20),
+                                  Text('Video',
+                                      style: TextStyle(
+                                          fontSize: 9,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            )
+                          : Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child:
+                                    Icon(Icons.description, color: Colors.grey),
+                              ),
+                            ),
                 ),
                 Positioned(
                   top: 0,
@@ -907,8 +1045,16 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
     return parts.isNotEmpty ? parts[0][0].toUpperCase() : 'U';
   }
 
-  String _formatDateTime(DateTime? dt) {
-    if (dt == null) return '';
-    return DateFormat('dd MMM yyyy, HH:mm').format(dt);
+  String _formatTimeAgo(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+    return DateFormat('dd MMM yyyy').format(dateTime);
   }
 }

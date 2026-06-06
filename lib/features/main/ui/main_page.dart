@@ -12,6 +12,12 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/update_service.dart';
+import '../../../core/widgets/update_dialog.dart';
+import '../../../core/storage/storage_manager.dart';
+import '../../../core/widgets/offline_banner.dart';
+import '../../profile/ui/privacy_policy_page.dart';
+import '../../chat/cubit/active_session_count_cubit.dart';
+import '../../chat/cubit/active_session_count_state.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -46,12 +52,32 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initUpdate();
     _initRealTime();
+    _checkPrivacyPolicy();
+    // Bersihkan semua notifikasi saat app pertama kali dibuka.
+    NotificationService.clearAll();
+  }
+
+  Future<void> _checkPrivacyPolicy() async {
+    final accepted = await StorageManager.isPrivacyPolicyAccepted();
+    if (!accepted && mounted) {
+      // Tunggu sebentar agar build selesai sebelum menampilkan bottom sheet
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          PrivacyPolicyPage.showAcceptanceSheet(context);
+        }
+      });
+    }
   }
 
   Future<void> _initUpdate() async {
-    // Jalankan cek update secara async tanpa menunggu UI terhambat
-    if (mounted) {
-      UpdateService.checkForUpdate(context);
+    // Cek update dari Nextcloud (hanya di production, async — tidak block UI)
+    final versionInfo = await UpdateService.checkForUpdate();
+    if (versionInfo != null && mounted) {
+      // Tunda sedikit agar build pertama selesai sebelum dialog muncul
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) {
+        await UpdateDialog.show(context, versionInfo);
+      }
     }
   }
 
@@ -60,9 +86,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       debugPrint('App resumed — checking Echo connection...');
+      // Bersihkan semua notifikasi saat app kembali ke foreground.
+      NotificationService.clearAll();
       // Kalau koneksi Echo putus, panggil reconnect (tanpa re-init/destroy koneksi lama)
-      // Pusher client plugin juga memiliki auto-reconnect native.
-      // Kita tidak boleh memanggil EchoService.init() di sini karena akan bertabrakan dengan native reconnect.
       if (!EchoService.isConnected && _currentUserId != null) {
         debugPrint(
           'App resumed — Echo disconnected, requesting soft reconnect...',
@@ -86,6 +112,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     // 2. Init Echo (WebSocket ke Reverb)
     await EchoService.init(currentUserId: _currentUserId);
 
+    // 2a. Subscribe ke ConnectivityService untuk auto-reconnect Echo saat internet kembali.
+    //     Hanya dipanggil SATU KALI, cleanup otomatis di disconnect() saat logout.
+    EchoService.subscribeToConnectivity();
+
     // 3. Init FCM (minta permission, upload token ke server) — sekali saja
     //    Dijalankan setelah auth token tersedia
     if (!_servicesInitialized) {
@@ -95,6 +125,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
     // 4. Daftarkan Echo listeners — hanya sekali
     _registerEchoListeners();
+
+    if (mounted) {
+      context.read<ActiveSessionCountCubit>().fetchCount();
+    }
   }
 
   void _registerEchoListeners() {
@@ -131,13 +165,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  void _onSessionCreated(dynamic data) {
+  void _onSessionCreated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionCreated received: $data');
+
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
+    if (mounted) {
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
+    }
 
     // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
 
-    // Tampilkan notifikasi lokal
+    // Tampilkan notifikasi lokal dengan badge count = jumlah sesi aktif
     if (data != null) {
       final ticketNumber = data['ticket_number'] as String?;
       NotificationService.showNotification(
@@ -145,12 +185,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         body: ticketNumber != null
             ? 'Tiket #$ticketNumber telah dibuat.'
             : 'Sesi baru tersedia.',
+        notificationId: NotificationId.sessionCreated,
+        badgeCount: activeCount,
       );
     }
   }
 
-  void _onSessionUpdated(dynamic data) {
+  void _onSessionUpdated(dynamic data) async {
     debugPrint('Echo [MainPage]: SessionUpdated received: $data');
+
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
+    if (mounted) {
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
+    }
 
     // Refresh session list
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -169,12 +217,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           body: status != null
               ? 'Status sesi berubah menjadi $status.'
               : 'Sesi telah diperbarui.',
+          notificationId: NotificationId.sessionUpdated,
+          badgeCount: activeCount,
         );
       }
     }
   }
 
-  void _onNewMessageReceived(dynamic data) {
+  void _onNewMessageReceived(dynamic data) async {
     if (data == null) return;
 
     final sessionUuid = data['session_uuid'] as String?;
@@ -191,12 +241,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Tampilkan notifikasi untuk pesan dari sesi lain
+    // Ambil jumlah sesi aktif terbaru
+    int activeCount = 0;
+    if (mounted) {
+      activeCount = await context.read<ActiveSessionCountCubit>().fetchCount();
+    }
+
+    // Tampilkan notifikasi dengan badge count = jumlah sesi aktif
     final body = messageType == 'TEXT'
         ? (messageContent ?? 'Pesan baru')
-        : '📎 Mengirim lampiran';
+        : (messageType == 'VIDEO' ? '📹 Mengirim video' : '📎 Mengirim lampiran');
 
-    NotificationService.showNotification(title: '💬 $senderName', body: body);
+    NotificationService.showNotification(
+      title: '💬 $senderName',
+      body: body,
+      notificationId: NotificationId.newMessage,
+      badgeCount: activeCount,
+    );
 
     // Refresh session list untuk update badge unread
     RealtimeEventBus.instance.notifySessionRefresh();
@@ -211,10 +272,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         data['body'] ??
         data['data']?['body'] ??
         'Cek aplikasi untuk info lebih lanjut.';
+    final String? notifType = data['type'] as String?;
+
+    // Jika backend mengirimkan type='thread', gunakan thread notification ID
+    // agar notif terhapus otomatis saat user membuka tab Threads.
+    final notifId = (notifType == 'thread')
+        ? NotificationId.thread
+        : NotificationId.globalNotification;
 
     NotificationService.showNotification(
       title: title.toString(),
       body: body.toString(),
+      channelId: (notifType == 'thread')
+          ? 'fifgroup_thread_channel'
+          : 'fifgroup_chat_channel',
+      notificationId: notifId,
     );
   }
 
@@ -233,6 +305,26 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _selectedIndex = index;
     });
 
+    // Map index → ActiveAppPage dan langsung cancel notifikasi kontekstual.
+    // Dengan ID deterministik, hanya notifikasi yang relevan dengan halaman
+    // tersebut yang dihapus — tanpa cancelAll().
+    const pageMap = {
+      0: ActiveAppPage.chat,
+      1: ActiveAppPage.search,
+      2: ActiveAppPage.threads,
+      3: ActiveAppPage.profile,
+    };
+    final page = pageMap[index];
+    if (page != null) {
+      RealtimeEventBus.instance.setActivePage(page);
+      NotificationService.cancelByContext(page);
+    }
+
+    // Jika pindah ke tab Search (index 1), picu refresh data terbaru
+    if (index == 1) {
+      RealtimeEventBus.instance.notifySearchRefresh();
+    }
+
     // Jika pindah ke tab Threads (index 2), picu refresh data terbaru
     if (index == 2) {
       RealtimeEventBus.instance.notifyThreadRefresh();
@@ -243,7 +335,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: OfflineBanner(
+        child: IndexedStack(index: _selectedIndex, children: _pages),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
@@ -294,11 +388,30 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            isActive ? activeIcon : icon,
-            color: isActive ? AppColors.primary : Colors.grey,
-            size: 24,
-          ),
+          if (index == 0) // Chat icon with badge
+            BlocBuilder<ActiveSessionCountCubit, ActiveSessionCountState>(
+              builder: (context, state) {
+                int count = 0;
+                if (state is ActiveSessionCountLoaded) {
+                  count = state.count;
+                }
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(count.toString()),
+                  child: Icon(
+                    isActive ? activeIcon : icon,
+                    color: isActive ? AppColors.primary : Colors.grey,
+                    size: 24,
+                  ),
+                );
+              },
+            )
+          else
+            Icon(
+              isActive ? activeIcon : icon,
+              color: isActive ? AppColors.primary : Colors.grey,
+              size: 24,
+            ),
           const SizedBox(height: 4),
           Text(
             label,

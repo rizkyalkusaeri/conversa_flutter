@@ -43,7 +43,7 @@ class _SearchableDropdownFieldState extends State<SearchableDropdownField> {
     return GestureDetector(
       onTap: () => _openSearchSheet(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(16),
@@ -55,18 +55,38 @@ class _SearchableDropdownFieldState extends State<SearchableDropdownField> {
               const SizedBox(width: 12),
             ],
             Expanded(
-              child: Text(
-                widget.selectedItem?.text ?? widget.hintText,
-                style: TextStyle(
-                  color: widget.selectedItem == null
-                      ? const Color(0xFF9CA3AF)
-                      : AppColors.textDark,
-                  fontSize: 15,
-                  fontWeight: widget.selectedItem == null
-                      ? FontWeight.normal
-                      : FontWeight.w500,
-                ),
-              ),
+              child: widget.selectedItem == null
+                  ? Text(
+                      widget.hintText,
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 15,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.selectedItem!.text,
+                          style: const TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (widget.selectedItem!.subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.selectedItem!.subtitle!,
+                            style: const TextStyle(
+                              color: Color(0xFF6B7280),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
             ),
             const Icon(
               Icons.keyboard_arrow_down_rounded,
@@ -225,6 +245,7 @@ class _SearchSheetContentState extends State<_SearchSheetContent> {
       itemBuilder: (context, index) {
         final item = _results[index];
         return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           title: Text(
             item.text,
             style: const TextStyle(
@@ -232,6 +253,15 @@ class _SearchSheetContentState extends State<_SearchSheetContent> {
               color: AppColors.textDark,
             ),
           ),
+          subtitle: item.subtitle != null
+              ? Text(
+                  item.subtitle!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                )
+              : null,
           onTap: () {
             Navigator.pop(context, item);
           },

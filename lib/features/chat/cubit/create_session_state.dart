@@ -89,3 +89,16 @@ class CreateSessionError extends CreateSessionState {
   @override
   List<Object?> get props => [message, isDuringSubmit];
 }
+
+class CreateSessionPendingFeedback extends CreateSessionState {
+  final String message;
+  final String pendingSessionUuid;
+
+  const CreateSessionPendingFeedback({
+    required this.message,
+    required this.pendingSessionUuid,
+  });
+
+  @override
+  List<Object?> get props => [message, pendingSessionUuid];
+}

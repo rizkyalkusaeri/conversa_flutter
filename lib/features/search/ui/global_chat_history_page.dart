@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_config.dart';
@@ -11,6 +12,7 @@ import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
 import '../cubit/global_chat_cubit.dart';
 import '../cubit/global_chat_state.dart';
 import '../../chat/ui/widgets/full_screen_image_viewer.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class GlobalChatHistoryPage extends StatefulWidget {
   final SessionModel session;
@@ -65,7 +67,46 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
                 }
 
                 if (state is GlobalChatError) {
-                  return Center(child: Text(state.message));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.wifi_off_rounded,
+                            size: 56,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            state.message,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          OutlinedButton.icon(
+                            onPressed: () => context
+                                .read<GlobalChatCubit>()
+                                .loadInitialChats(),
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: const Text('Coba Lagi'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 }
 
                 if (state is GlobalChatLoaded) {
@@ -190,12 +231,19 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                child: Text(
-                  chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
-                  style: const TextStyle(color: AppColors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
+              GestureDetector(
+                onTap: () {
+                  if (chat.senderId != null) {
+                    UserProfilePopup.show(context, chat.senderId!);
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                  child: Text(
+                    chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
+                    style: const TextStyle(color: AppColors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -243,7 +291,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
   }
 
   Widget _buildAttachment(BuildContext context, ChatMessageModel chat) {
-    if (chat.messageType == 'IMAGE') {
+    if (chat.isImage) {
       return GestureDetector(
         onTap: () {
           Navigator.push(
@@ -263,13 +311,19 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
             height: 150,
             width: double.infinity,
             fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.grey.shade200, height: 150),
+            placeholder: (context, url) =>
+                Container(color: Colors.grey.shade200, height: 150),
           ),
         ),
       );
+    } else if (chat.isVideo) {
+      return VideoAttachmentWidget(
+        videoUrl: ApiConfig.imageUrl + chat.attachmentUrl!,
+      );
     } else {
       return GestureDetector(
-        onTap: () => launchUrl(Uri.parse(ApiConfig.imageUrl + chat.attachmentUrl!)),
+        onTap: () =>
+            launchUrl(Uri.parse(ApiConfig.imageUrl + chat.attachmentUrl!)),
         child: Container(
           padding: const EdgeInsets.all(12),
           color: Colors.grey.withValues(alpha: 0.2),
@@ -278,7 +332,12 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
             children: [
               const Icon(Icons.insert_drive_file, color: AppColors.textDark),
               const SizedBox(width: 8),
-              Flexible(child: Text(chat.attachmentUrl?.split('/').last ?? 'View Document', overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(
+                  chat.attachmentUrl?.split('/').last ?? 'View Document',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),

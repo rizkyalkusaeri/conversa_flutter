@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bloc/bloc.dart';
@@ -35,7 +36,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         searchQuery: searchQuery,
       ));
     } catch (e) {
-      emit(ChatDetailError(e.toString()));
+      emit(ChatDetailError(_friendlyError(e)));
     }
   }
 
@@ -57,7 +58,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
       } catch (e) {
         // Rollback current page if failed
         _currentPage--;
-        emit(ChatDetailError(e.toString()));
+        emit(ChatDetailError(_friendlyError(e)));
       }
     }
   }
@@ -65,23 +66,31 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   Future<void> sendMessage(String text, XFile? attachment) async {
     if (state is ChatDetailLoaded) {
       final currentState = state as ChatDetailLoaded;
-      
-      emit(currentState.copyWith(isSubmitting: true, submitError: null));
+
+      emit(currentState.copyWith(
+        isSubmitting: true,
+        isUploadingAttachment: attachment != null,
+        submitError: null,
+      ));
 
       try {
-        final newMessage = await _repository.sendChat(initialSession.id, text, attachment);
-        
+        final newMessage = await _repository.sendChat(
+            initialSession.id, text, attachment);
+
         // Sisipkan pesan baru ke paling atas daftar (index 0 karena riwayat reverse scroll)
         final updatedChats = List.of(currentState.chats)..insert(0, newMessage);
-        
+
         emit(currentState.copyWith(
           isSubmitting: false,
+          isUploadingAttachment: false,
           chats: updatedChats,
         ));
       } catch (e) {
         emit(currentState.copyWith(
           isSubmitting: false,
-          submitError: e.toString().replaceFirst('Exception: ', ''),
+          isUploadingAttachment: false,
+          submitError: _friendlyError(e),
+          submitErrorTimestamp: DateTime.now().millisecondsSinceEpoch,
         ));
       }
     }
@@ -137,5 +146,34 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         debugPrint('reloadSession error: $e');
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helper: Ubah exception teknis menjadi pesan yang bersih untuk user
+  // ---------------------------------------------------------------------------
+  static String _friendlyError(Object e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        case DioExceptionType.badResponse:
+          final code = e.response?.statusCode;
+          if (code == 401) return 'Sesi telah berakhir. Silakan login kembali.';
+          if (code == 403) return 'Anda tidak memiliki akses.';
+          if (code == 404) return 'Data tidak ditemukan.';
+          if (code != null && code >= 500) return 'Server sedang bermasalah. Coba beberapa saat lagi.';
+          return 'Terjadi kesalahan dari server.';
+        case DioExceptionType.cancel:
+          return 'Permintaan dibatalkan.';
+        default:
+          return 'Terjadi kesalahan jaringan.';
+      }
+    }
+    // Exception biasa — buang prefix "Exception: "
+    final raw = e.toString();
+    return raw.startsWith('Exception: ') ? raw.replaceFirst('Exception: ', '') : raw;
   }
 }

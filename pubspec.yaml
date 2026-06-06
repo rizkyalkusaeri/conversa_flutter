@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+5
 
 environment:
   sdk: ^3.11.4
@@ -37,6 +37,8 @@ dependencies:
   flutter_bloc: ^9.1.1
   bloc: ^9.2.0
   dio: ^5.9.2
+  path_provider: ^2.1.5
+  open_file: ^3.5.3
   meta: ^1.17.0
   shared_preferences: ^2.5.5
   equatable: ^2.0.8
@@ -49,11 +51,17 @@ dependencies:
   laravel_echo: ^1.0.0-beta.1
   pusher_client_fixed: ^0.0.5
   flutter_local_notifications: ^21.0.0
+  app_badge_plus: ^1.2.10
   permission_handler: ^12.0.1
   # Firebase untuk push notification saat app terminated
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.5
   in_app_update: ^4.0.2
+  mime: ^2.0.0
+  connectivity_plus: ^6.1.4
+  internet_connection_checker_plus: ^2.5.1
+  video_player: ^2.9.1
+  chewie: ^1.8.5
 
 dev_dependencies:
   flutter_test:
@@ -81,19 +89,21 @@ dependency_overrides:
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/images/1.png
+  image: assets/images/filink_app_launcher.png
   android: true
   ios: true
   android_12:
-    image: assets/images/1.png
+    color: "#ffffff"
+    image: assets/images/filink_app_launcher.png
 
 flutter_launcher_icons:
-  android: false
+  android: true
   ios: true
-  image_path: "assets/images/1.png"
+  image_path: "assets/images/launcher.png"
+  adaptive_icon_foreground_inset: 10
   android_notification_icon:
-    enabled: false
-    image_path: "assets/images/2.png"
+    enabled: true
+    image_path: "assets/images/launcher.png"
     name: "ic_notification"
 
 # The following section is specific to Flutter packages.

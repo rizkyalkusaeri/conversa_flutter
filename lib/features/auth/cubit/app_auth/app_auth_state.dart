@@ -10,6 +10,8 @@ abstract class AppAuthState extends Equatable {
 
 class AppAuthInitial extends AppAuthState {}
 
+class AppAuthLoading extends AppAuthState {}
+
 class AppAuthAuthenticated extends AppAuthState {
   final UserModel user;
 
@@ -20,3 +22,8 @@ class AppAuthAuthenticated extends AppAuthState {
 }
 
 class AppAuthUnauthenticated extends AppAuthState {}
+
+/// Khusus untuk force logout akibat token expired dari server.
+/// Berbeda dengan AppAuthUnauthenticated (logout manual) agar
+/// UI bisa menampilkan dialog "Sesi habis" kepada user.
+class AppAuthSessionExpired extends AppAuthState {}

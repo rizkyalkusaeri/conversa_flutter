@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- External files directory (getExternalFilesDir) — tidak butuh WRITE_EXTERNAL_STORAGE di Android 10+ -->
+    <external-files-path name="apk_download" path="." />
+    <!-- Cache directory fallback -->
+    <cache-path name="apk_cache" path="." />
+    <!-- External cache fallback -->
+    <external-cache-path name="apk_external_cache" path="." />
+</paths>

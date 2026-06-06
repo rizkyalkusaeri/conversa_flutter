@@ -20,9 +20,29 @@ class ProfileService {
           (json) => UserModel.fromJson(json as Map<String, dynamic>),
         );
       }
-      throw Exception('Gagal menghubungi server: ${e.message}');
+      rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan yang tidak terduga: $e');
+      rethrow;
+    }
+  }
+
+  Future<ApiResponse<UserModel>> fetchUserProfile(int userId) async {
+    try {
+      final response = await _dio.get('/profile/$userId');
+      return ApiResponse<UserModel>.fromJson(
+        response.data,
+        (json) => UserModel.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        return ApiResponse<UserModel>.fromJson(
+          e.response!.data,
+          (json) => UserModel.fromJson(json as Map<String, dynamic>),
+        );
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
     }
   }
 }

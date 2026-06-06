@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
+import '../../../core/utils/error_helper.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 
@@ -30,7 +31,7 @@ class ThreadService {
         (json) => ThreadModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat daftar thread: $e');
+      rethrow;
     }
   }
 
@@ -44,7 +45,7 @@ class ThreadService {
         (json) => ThreadModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat detail thread: $e');
+      rethrow;
     }
   }
 
@@ -61,15 +62,8 @@ class ThreadService {
         response.data,
         (json) => ThreadModel.fromJson(json as Map<String, dynamic>),
       );
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal membuat thread';
-        throw Exception(errorMessage);
-      }
-      throw Exception('Gagal membuat thread: ${e.message}');
     } catch (e) {
-      throw Exception('Terjadi kesalahan: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -87,15 +81,8 @@ class ThreadService {
         response.data,
         (json) => ThreadModel.fromJson(json as Map<String, dynamic>),
       );
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal memperbarui thread';
-        throw Exception(errorMessage);
-      }
-      throw Exception('Gagal memperbarui thread: ${e.message}');
     } catch (e) {
-      throw Exception('Terjadi kesalahan: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -106,7 +93,7 @@ class ThreadService {
       final data = response.data['data'] ?? {};
       return data['likes_count'] ?? 0;
     } catch (e) {
-      throw Exception('Gagal mengubah status like: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -127,7 +114,7 @@ class ThreadService {
         (json) => CommentModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat komentar: $e');
+      rethrow;
     }
   }
 
@@ -145,15 +132,8 @@ class ThreadService {
         response.data,
         (json) => CommentModel.fromJson(json as Map<String, dynamic>),
       );
-    } on DioException catch (e) {
-      if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal mengirim komentar';
-        throw Exception(errorMessage);
-      }
-      throw Exception('Gagal mengirim komentar: ${e.message}');
     } catch (e) {
-      throw Exception('Terjadi kesalahan: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -164,7 +144,16 @@ class ThreadService {
       final data = response.data['data'] ?? {};
       return data['likes_count'] ?? 0;
     } catch (e) {
-      throw Exception('Gagal mengubah status like komentar: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
+
+  /// Delete a thread
+  Future<void> deleteThread(String uuid) async {
+    try {
+      await _dio.delete('/threads/$uuid');
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 }

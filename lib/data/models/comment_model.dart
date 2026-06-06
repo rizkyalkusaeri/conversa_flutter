@@ -57,10 +57,19 @@ class CommentModel {
                 : url;
             final ext = normalizedUrl.split('.').last.toLowerCase();
             final imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            final videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+            
+            String fileType = 'application/octet-stream';
+            if (imageExts.contains(ext)) {
+              fileType = 'image/jpeg';
+            } else if (videoExts.contains(ext)) {
+              fileType = 'video/mp4';
+            }
+
             return ThreadAttachment(
               id: 0,
               url: normalizedUrl,
-              fileType: imageExts.contains(ext) ? 'image/jpeg' : 'application/octet-stream',
+              fileType: fileType,
               originalName: normalizedUrl.split('/').last,
             );
           }).toList() ??

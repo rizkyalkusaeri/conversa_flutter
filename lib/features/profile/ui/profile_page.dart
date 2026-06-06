@@ -7,6 +7,7 @@ import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import '../cubit/profile_cubit.dart';
 import '../cubit/profile_state.dart';
 import 'change_password_page.dart';
+import 'privacy_policy_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -46,19 +47,42 @@ class ProfilePage extends StatelessWidget {
                 // Ignore type checking hack karena kita belum imp exp AuthModel ke sini
                 // Alternatif aman: tampilkan error
                 return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        state.message,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                      ElevatedButton(
-                        onPressed: () =>
-                            context.read<ProfileCubit>().getProfileDetails(),
-                        child: const Text("Retry"),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 56,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          state.message,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.read<ProfileCubit>().getProfileDetails(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Coba Lagi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }
@@ -139,6 +163,17 @@ class ProfilePage extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            user.location ?? 'Pusat (HO)',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
       ],
     );
   }
@@ -153,15 +188,6 @@ class ProfilePage extends StatelessWidget {
             label: 'Jabatan / Level',
             value: user.level ?? 'Belum Diatur',
             iconColor: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildDetailBox(
-            icon: Icons.location_on_outlined,
-            label: 'Lokasi Kerja',
-            value: user.location ?? 'Pusat (HO)',
-            iconColor: AppColors.success,
           ),
         ),
         const SizedBox(width: 16),
@@ -259,11 +285,27 @@ class ProfilePage extends StatelessWidget {
           const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
           _buildListTile(
             context: context,
-            icon: Icons.help_outline,
-            title: "Help & Support",
+            icon: Icons.privacy_tip_outlined,
+            title: "Kebijakan Privasi",
             iconBgColor: AppColors.primaryContainer,
             iconColor: AppColors.primary,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyPolicyPage(),
+                ),
+              );
+            },
           ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF5F5F5)),
+          // _buildListTile(
+          //   context: context,
+          //   icon: Icons.help_outline,
+          //   title: "Bantuan & Dukungan",
+          //   iconBgColor: AppColors.primaryContainer,
+          //   iconColor: AppColors.primary,
+          // ),
         ],
       ),
     );
@@ -311,9 +353,9 @@ class ProfilePage extends StatelessWidget {
   Widget _buildLogoutButton(BuildContext context) {
     return InkWell(
       hoverColor: Colors.transparent,
-      onTap: () {
+      onTap: () async {
         // Panggil Global AppAuthCubit logOut
-        context.read<AppAuthCubit>().logOut();
+        await context.read<AppAuthCubit>().logOut();
       },
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

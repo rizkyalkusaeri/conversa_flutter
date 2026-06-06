@@ -4,6 +4,7 @@ import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../cubit/session_action_cubit.dart';
 import '../../cubit/session_action_state.dart';
+import 'confirmation_dialog.dart';
 
 class CompleteSessionDialog extends StatefulWidget {
   final SessionModel session;
@@ -18,8 +19,8 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
   int _rating = 0;
   final TextEditingController _feedbackController = TextEditingController();
 
-  void _submit() {
-    if (!widget.session.isHaveUniqueId && _rating == 0) {
+  void _submit() async {
+    if (widget.session.isFeedbackRequired && _rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan berikan rating terlebih dahulu'),
@@ -29,11 +30,27 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
       return;
     }
 
-    context.read<SessionActionCubit>().completeSession(
-      widget.session.id,
-      rating: widget.session.isHaveUniqueId ? null : _rating,
-      feedback: widget.session.isHaveUniqueId ? null : _feedbackController.text,
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => const ConfirmationDialog(
+        title: 'Selesaikan Sesi',
+        message: 'Apakah Anda yakin ingin menyelesaikan sesi ini?',
+        confirmLabel: 'Ya, Selesaikan',
+        cancelLabel: 'Batal',
+        icon: Icons.check_circle,
+        iconColor: Colors.green,
+      ),
     );
+
+    if (confirm == true && mounted) {
+      context.read<SessionActionCubit>().completeSession(
+        widget.session.id,
+        rating: widget.session.isFeedbackRequired ? _rating : null,
+        feedback: widget.session.isFeedbackRequired ? _feedbackController.text.trim().isEmpty
+            ? null
+            : _feedbackController.text.trim() : null,
+      );
+    }
   }
 
   @override
@@ -82,7 +99,7 @@ class _CompleteSessionDialogState extends State<CompleteSessionDialog> {
                     ),
                     const SizedBox(height: 16),
                     
-                    if (widget.session.isHaveUniqueId) ...[
+                    if (!widget.session.isFeedbackRequired) ...[
                       const Text(
                         'Apakah Anda yakin ingin menyelesaikan sesi ini? Status tiket akan berubah menjadi CLOSED.',
                         style: TextStyle(fontSize: 14, color: Colors.grey),

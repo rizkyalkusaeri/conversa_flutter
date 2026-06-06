@@ -1,5 +1,6 @@
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
 import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
 import '../../../core/network/pagination_response.dart';
 
@@ -13,8 +14,12 @@ class SessionRepository {
     return _service.getSessions(status: status, page: page, search: search);
   }
 
-  Future<PaginationResponse<SessionModel>> fetchGlobalSessions(int page, {String? status, String? search}) {
-    return _service.getGlobalSessions(page: page, status: status, search: search);
+  Future<PaginationResponse<SessionModel>> fetchGlobalSessions(int page, {String? status, String? search, int? userId, String? scope}) {
+    return _service.getGlobalSessions(page: page, status: status, search: search, userId: userId, scope: scope);
+  }
+
+  Future<PaginationResponse<UserModel>> fetchGlobalUsers(int page, {String? search}) {
+    return _service.getGlobalUsers(page: page, search: search);
   }
 
   Future<SessionModel> createSession(Map<String, dynamic> data) async {
@@ -50,6 +55,13 @@ class SessionRepository {
     throw Exception(response.message);
   }
 
+  Future<SessionModel> submitFeedback(
+      String uuid, int rating, String? feedback) async {
+    final response = await _service.submitFeedback(uuid, rating, feedback);
+    if (response.success && response.data != null) return response.data!;
+    throw Exception(response.message);
+  }
+
   Future<List<MasterDataModel>> getCategories({String? search}) {
     Map<String, dynamic> params = {};
     if (search != null && search.isNotEmpty) params['search'] = search;
@@ -68,9 +80,7 @@ class SessionRepository {
     return _service.getMasterData('/master/topics', 'topic_name', queryParams: params);
   }
       
-  Future<List<MasterDataModel>> getResolvers(int categoryId, {String? search}) {
-    Map<String, dynamic> params = {'category_id': categoryId};
-    if (search != null && search.isNotEmpty) params['search'] = search;
-    return _service.getMasterData('/master/resolvers', 'full_name', queryParams: params);
+  Future<List<MasterDataModel>> getResolvers(int categoryId, {String? search, String? tujuan}) {
+    return _service.getResolvers(categoryId: categoryId, search: search, tujuan: tujuan);
   }
 }

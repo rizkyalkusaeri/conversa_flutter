@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/full_screen_image_viewer.dart';
+import 'widgets/rating_dialog.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/cubit/app_auth/app_auth_cubit.dart';
 import '../../auth/cubit/app_auth/app_auth_state.dart';
@@ -22,8 +24,11 @@ import '../cubit/session_action_cubit.dart';
 import '../cubit/session_action_state.dart';
 import 'widgets/complete_session_dialog.dart';
 import 'widgets/image_preview_dialog.dart';
+import 'widgets/confirmation_dialog.dart';
 import '../../../core/network/echo_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
+import '../../../core/widgets/video_attachment_widget.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final SessionModel session;
@@ -41,6 +46,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   int? _currentUserId;
   bool _isSearching = false;
+  bool _isExternalPickerOpen =
+      false; // Cegah reload saat kembali dari FilePicker
   final TextEditingController _searchController = TextEditingController();
 
   // Subscription untuk session updated dari MainPage via EventBus
@@ -62,6 +69,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      // Abaikan jika kembali dari FilePicker/picker eksternal (bukan dari background app)
+      if (_isExternalPickerOpen) {
+        _isExternalPickerOpen = false;
+        return;
+      }
       debugPrint('ChatDetailPage resumed — reloading chats & session...');
       context.read<ChatDetailCubit>().loadInitialChats();
       context.read<ChatDetailCubit>().reloadSession();
@@ -154,28 +166,29 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           children: [
             ListTile(
               leading: const Icon(
-                Icons.photo_library,
+                Icons.perm_media_outlined,
                 color: AppColors.primary,
               ),
-              title: const Text('Galeri Gambar'),
-              onTap: () async {
-                final cubit = context.read<ChatDetailCubit>();
+              title: const Text('Galeri Media (Foto & Video)'),
+              onTap: () {
                 Navigator.pop(ctx);
-                final picker = ImagePicker();
-                final List<XFile> images = await picker.pickMultiImage();
-                if (images.isNotEmpty) {
-                  for (var image in images) {
-                    cubit.sendMessage("", image);
-                  }
-                }
+                _pickGalleryMedia(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primary),
-              title: const Text('Kamera'),
+              title: const Text('Ambil Foto'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takePhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takeVideo();
               },
             ),
             ListTile(
@@ -186,13 +199,33 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               title: const Text('Dokumen'),
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(ctx);
+                _isExternalPickerOpen =
+                    true; // Set flag sebelum FilePicker dibuka
                 FilePickerResult? result = await FilePicker.pickFiles(
-                  allowMultiple: true,
+                  allowMultiple: false,
                 );
+                _isExternalPickerOpen = false; // Reset flag setelah kembali
                 if (result != null) {
                   for (var file in result.files) {
                     if (file.path != null) {
+                      // Validasi ukuran file sebelum upload
+                      final fileSize = await File(file.path!).length();
+                      if (fileSize > 20 * 1024 * 1024) {
+                        final sizeMB = (fileSize / (1024 * 1024))
+                            .toStringAsFixed(1);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'File terlalu besar ($sizeMB MB). Maksimal 20MB.',
+                            ),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                        return;
+                      }
                       cubit.sendMessage("", XFile(file.path!, name: file.name));
                     }
                   }
@@ -256,6 +289,81 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     }
   }
 
+  Future<void> _takeVideo() async {
+    final cubit = context.read<ChatDetailCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    var status = await Permission.camera.status;
+    if (status.isDenied) status = await Permission.camera.request();
+    if (!status.isGranted) return;
+
+    final picker = ImagePicker();
+    final XFile? video = await picker.pickVideo(source: ImageSource.camera);
+
+    if (video != null) {
+      if (!mounted) return;
+      // Validasi ukuran video
+      final size = await File(video.path).length();
+      if (size > 20 * 1024 * 1024) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Video terlalu besar. Maksimal 20MB.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      cubit.sendMessage("", video);
+    }
+  }
+
+  Future<void> _pickGalleryMedia(BuildContext context) async {
+    final cubit = context.read<ChatDetailCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final picker = ImagePicker();
+    // pickMedia allows both images and videos
+    final XFile? media = await picker.pickMedia();
+
+    if (media != null) {
+      if (!mounted) return;
+
+      // Validasi ukuran
+      final size = await File(media.path).length();
+      if (size > 20 * 1024 * 1024) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('File terlalu besar. Maksimal 20MB.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Jika gambar, tunjukkan preview dulu
+      final ext = media.path.toLowerCase().split('.').last;
+      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+
+      if (isImage) {
+        final result = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => ImagePreviewDialog(
+            imagePath: media.path,
+            onSend: () => Navigator.pop(ctx, true),
+            onRetake: () => Navigator.pop(ctx, false),
+          ),
+        );
+        if (result == true) {
+          cubit.sendMessage("", media);
+        } else if (result == false) {
+          _pickGalleryMedia(context);
+        }
+      } else {
+        // Video langsung kirim (atau bisa tambah video preview jika mau, tapi kirim langsung cukup)
+        cubit.sendMessage("", media);
+      }
+    }
+  }
+
   void _sendMessage() {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
@@ -302,9 +410,43 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
                   if (state is ChatDetailError) {
                     return Center(
-                      child: Text(
-                        state.message,
-                        style: const TextStyle(color: Colors.red),
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wifi_off_rounded,
+                              size: 56,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              state.message,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            OutlinedButton.icon(
+                              onPressed: () => context
+                                  .read<ChatDetailCubit>()
+                                  .loadInitialChats(),
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Coba Lagi'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: BorderSide(color: AppColors.primary),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -340,9 +482,24 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           horizontal: 16,
                           vertical: 8,
                         ),
-                        itemCount: chats.length + (state.hasReachedMax ? 0 : 1),
+                        // +1 for uploading bubble (only when uploading a file), +1 for load-more spinner
+                        itemCount:
+                            chats.length +
+                            (state.isUploadingAttachment ? 1 : 0) +
+                            (state.hasReachedMax ? 0 : 1),
                         itemBuilder: (context, index) {
-                          if (index == chats.length) {
+                          // Uploading bubble — at top (index 0 since list is reversed)
+                          if (state.isUploadingAttachment && index == 0) {
+                            return _buildUploadingBubble();
+                          }
+
+                          // Offset index when uploading bubble is shown
+                          final adjustedIndex = state.isUploadingAttachment
+                              ? index - 1
+                              : index;
+
+                          // Load-more spinner at bottom
+                          if (adjustedIndex == chats.length) {
                             return const Padding(
                               padding: EdgeInsets.all(16.0),
                               child: Center(
@@ -353,7 +510,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                             );
                           }
 
-                          final chat = chats[index];
+                          final chat = chats[adjustedIndex];
                           final isMe = chat.senderId == _currentUserId;
 
                           return _buildMessageBubble(chat, isMe);
@@ -369,6 +526,49 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             _buildMessageComposer(),
           ],
         ),
+      ),
+    );
+  }
+
+  // Bubble sementara yang muncul di chat list saat file sedang diunggah
+  Widget _buildUploadingBubble() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Mengunggah...',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -443,7 +643,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  "Session #${session.ticketNumber.substring(0, 8)}",
+                  "Sesi #${session.ticketNumber.substring(0, 8)}",
                   style: const TextStyle(
                     color: AppColors.textDark,
                     fontWeight: FontWeight.bold,
@@ -471,8 +671,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           IconButton(
             icon: const Icon(Icons.cancel, color: Colors.red),
             tooltip: 'Tolak',
-            onPressed: () {
-              context.read<SessionActionCubit>().rejectClose(session.id);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Tolak Permintaan Selesai',
+                  message: 'Apakah Anda yakin ingin menolak permintaan penyelesaian sesi ini?',
+                  confirmLabel: 'Ya, Tolak',
+                  cancelLabel: 'Batal',
+                  icon: Icons.cancel,
+                  iconColor: Colors.red,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().rejectClose(session.id);
+              }
             },
           ),
         if (showComplete)
@@ -480,15 +694,34 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             icon: const Icon(Icons.check_circle, color: Colors.green),
             tooltip: 'Selesaikan',
             onPressed: () async {
-              final result = await showDialog<SessionModel>(
-                context: context,
-                builder: (ctx) => BlocProvider.value(
-                  value: context.read<SessionActionCubit>(),
-                  child: CompleteSessionDialog(session: session),
-                ),
-              );
-              if (result != null) {
-                _handleActionSuccess(result);
+              if (session.isFeedbackRequired) {
+                final result = await showDialog<SessionModel>(
+                  context: context,
+                  builder: (ctx) => BlocProvider.value(
+                    value: context.read<SessionActionCubit>(),
+                    child: CompleteSessionDialog(session: session),
+                  ),
+                );
+                if (!mounted) return;
+                if (result != null) {
+                  _handleActionSuccess(result);
+                }
+              } else {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => const ConfirmationDialog(
+                    title: 'Selesaikan Sesi',
+                    message: 'Apakah Anda yakin ingin menyelesaikan sesi ini? Status tiket akan berubah menjadi CLOSED.',
+                    confirmLabel: 'Ya, Selesaikan',
+                    cancelLabel: 'Batal',
+                    icon: Icons.check_circle,
+                    iconColor: Colors.green,
+                  ),
+                );
+                if (!mounted) return;
+                if (confirm == true) {
+                  context.read<SessionActionCubit>().completeSession(session.id);
+                }
               }
             },
           ),
@@ -496,11 +729,47 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           IconButton(
             icon: const Icon(Icons.access_time_filled, color: Colors.amber),
             tooltip: 'Minta Selesai',
-            onPressed: () {
-              context.read<SessionActionCubit>().requestClose(session.id);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Minta Selesai Sesi',
+                  message: 'Apakah Anda yakin ingin meminta penyelesaian sesi ini?',
+                  confirmLabel: 'Ya, Kirim',
+                  cancelLabel: 'Batal',
+                  icon: Icons.access_time_filled,
+                  iconColor: Colors.amber,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().requestClose(session.id);
+              }
             },
           ),
         if (status == 'CLOSED') ...[
+          // Tombol rating jika belum diberi penilaian dan user adalah requester & feedback diperlukan
+          if (isRequester && session.rating == null && session.isFeedbackRequired)
+            IconButton(
+              icon: const Icon(
+                Icons.star_border_rounded,
+                color: Colors.amber,
+                size: 28,
+              ),
+              tooltip: 'Beri Penilaian',
+              onPressed: () async {
+                final result = await showDialog<SessionModel>(
+                  context: context,
+                  builder: (ctx) => BlocProvider.value(
+                    value: context.read<SessionActionCubit>(),
+                    child: RatingDialog(session: session),
+                  ),
+                );
+                if (result != null) {
+                  _handleActionSuccess(result);
+                }
+              },
+            ),
           if (session.openRequestedAt == null)
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.blue),
@@ -544,34 +813,44 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           ),
           child: Row(
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: () {
+                  final opponentId = (session.requesterId == _currentUserId)
+                      ? session.resolverId
+                      : session.requesterId;
+                  if (opponentId != null) {
+                    UserProfilePopup.show(context, opponentId);
+                  }
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -639,15 +918,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
-                  child: Text(
-                    chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
-                    style: const TextStyle(
-                      color: AppColors.secondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () {
+                    if (chat.senderId != null) {
+                      UserProfilePopup.show(context, chat.senderId!);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                    child: Text(
+                      chat.senderName?.substring(0, 1).toUpperCase() ?? "U",
+                      style: const TextStyle(
+                        color: AppColors.secondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -685,7 +971,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       if (chat.attachmentUrl != null) ...[
                         GestureDetector(
                           onTap: () {
-                            if (chat.messageType == 'IMAGE') {
+                            if (chat.isImage) {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -697,6 +983,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                   ),
                                 ),
                               );
+                            } else if (chat.isVideo) {
+                              // Video Tap action (bisa diisi jika ingin fullscreen player khusus)
                             } else {
                               _openAttachment(
                                 ApiConfig.imageUrl + chat.attachmentUrl!,
@@ -705,7 +993,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           },
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: (chat.messageType == 'IMAGE')
+                            child: chat.isImage
                                 ? Hero(
                                     tag: 'chat_image_${chat.id}',
                                     child: CachedNetworkImage(
@@ -751,6 +1039,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                             ),
                                           ),
                                     ),
+                                  )
+                                : chat.isVideo
+                                ? VideoAttachmentWidget(
+                                    videoUrl:
+                                        ApiConfig.imageUrl +
+                                        chat.attachmentUrl!,
                                   )
                                 : Container(
                                     padding: const EdgeInsets.all(12),
@@ -857,91 +1151,102 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           );
         }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => _pickAttachment(context),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add, color: Colors.grey, size: 22),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _msgController,
-                          decoration: const InputDecoration(
-                            hintText: "Type a message...",
-                            hintStyle: TextStyle(color: Colors.grey),
-                            border: InputBorder.none,
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
-                          maxLines: null,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.emoji_emotions_outlined,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              BlocBuilder<ChatDetailCubit, ChatDetailState>(
-                builder: (context, state) {
-                  bool isSubmitting = false;
-                  if (state is ChatDetailLoaded) {
-                    isSubmitting = state.isSubmitting;
-                  }
-
-                  return GestureDetector(
-                    onTap: isSubmitting ? null : _sendMessage,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _pickAttachment(context),
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: Colors.grey.shade200,
                         shape: BoxShape.circle,
                       ),
-                      child: isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.send,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.grey,
+                        size: 22,
+                      ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _msgController,
+                              decoration: const InputDecoration(
+                                hintText: "Type a message...",
+                                hintStyle: TextStyle(color: Colors.grey),
+                                border: InputBorder.none,
+                              ),
+                              textCapitalization: TextCapitalization.sentences,
+                              maxLines: null,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.emoji_emotions_outlined,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  BlocBuilder<ChatDetailCubit, ChatDetailState>(
+                    builder: (context, state) {
+                      bool isSubmitting = false;
+                      if (state is ChatDetailLoaded) {
+                        isSubmitting = state.isSubmitting;
+                      }
+
+                      return GestureDetector(
+                        onTap: isSubmitting ? null : _sendMessage,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.send,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );

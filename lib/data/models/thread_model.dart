@@ -39,8 +39,21 @@ class ThreadAttachment {
   }
 
   bool get isImage {
-    if (fileType == null) return false;
-    return fileType!.startsWith('image/');
+    if (fileType != null && fileType!.startsWith('image/')) return true;
+    if (url != null) {
+      final ext = url!.toLowerCase().split('.').last;
+      return ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+    }
+    return false;
+  }
+
+  bool get isVideo {
+    if (fileType != null && fileType!.startsWith('video/')) return true;
+    if (url != null) {
+      final ext = url!.toLowerCase().split('.').last;
+      return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext);
+    }
+    return false;
   }
 }
 
@@ -60,6 +73,12 @@ class ThreadModel {
   final List<int> selectedLevelIds;
   // IDs user spesifik yang ditarget — digunakan untuk pre-populate form edit
   final List<int> selectedUserIds;
+  final int? topicId;
+  final String? topicName;
+  final int? subCategoryId;
+  final String? subCategoryName;
+  final int? categoryId;
+  final String? categoryName;
 
   ThreadModel({
     required this.id,
@@ -75,6 +94,12 @@ class ThreadModel {
     this.visibleToLevels = const ['Semua Jabatan'],
     this.selectedLevelIds = const [],
     this.selectedUserIds = const [],
+    this.topicId,
+    this.topicName,
+    this.subCategoryId,
+    this.subCategoryName,
+    this.categoryId,
+    this.categoryName,
   });
 
   factory ThreadModel.fromJson(Map<String, dynamic> json) {
@@ -96,12 +121,18 @@ class ThreadModel {
               return ThreadAttachment.fromJson(e);
             }
             final url = e.toString();
+            final lowerUrl = url.toLowerCase();
             final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-                .any((ext) => url.toLowerCase().endsWith(ext));
+                .any((ext) => lowerUrl.endsWith(ext));
+            final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm']
+                .any((ext) => lowerUrl.endsWith(ext));
+            
             return ThreadAttachment(
               id: 0,
               url: url,
-              fileType: isImage ? 'image/unknown' : 'application/octet-stream',
+              fileType: isImage 
+                  ? 'image/jpeg' 
+                  : (isVideo ? 'video/mp4' : 'application/octet-stream'),
               originalName: url.split('/').last,
             );
           }).toList() ??
@@ -118,13 +149,25 @@ class ThreadModel {
           ['Semua Jabatan'],
       // Jabatan dan user spesifik dari response API (untuk pre-populate edit)
       selectedLevelIds: (json['selected_level_ids'] as List<dynamic>?)
-              ?.map((e) => e as int)
+              ?.map((e) => int.tryParse(e.toString()) ?? 0)
               .toList() ??
           [],
       selectedUserIds: (json['selected_user_ids'] as List<dynamic>?)
-              ?.map((e) => e as int)
+              ?.map((e) => int.tryParse(e.toString()) ?? 0)
               .toList() ??
           [],
+      topicId: json['topic_id'] != null 
+          ? int.tryParse(json['topic_id'].toString()) 
+          : null,
+      topicName: json['topic_name'] as String?,
+      subCategoryId: json['sub_category_id'] != null
+          ? int.tryParse(json['sub_category_id'].toString())
+          : null,
+      subCategoryName: json['sub_category_name'] as String?,
+      categoryId: json['category_id'] != null
+          ? int.tryParse(json['category_id'].toString())
+          : null,
+      categoryName: json['category_name'] as String?,
     );
   }
 
@@ -144,6 +187,12 @@ class ThreadModel {
       visibleToLevels: visibleToLevels,
       selectedLevelIds: selectedLevelIds,
       selectedUserIds: selectedUserIds,
+      topicId: topicId,
+      topicName: topicName,
+      subCategoryId: subCategoryId,
+      subCategoryName: subCategoryName,
+      categoryId: categoryId,
+      categoryName: categoryName,
     );
   }
 }

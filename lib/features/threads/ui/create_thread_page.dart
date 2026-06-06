@@ -10,6 +10,10 @@ import '../cubit/create_thread_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../chat/ui/widgets/image_preview_dialog.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
+import '../../chat/ui/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/form_label.dart';
 import 'widgets/thread_target_selector.dart';
 
 class CreateThreadPage extends StatefulWidget {
@@ -31,6 +35,17 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   // User spesifik yang ditarget — kosong = semua user jabatan terpilih
   List<int> _selectedUserIds = [];
 
+  int? _selectedCategoryId;
+  MasterDataModel? _selectedCategoryModel;
+
+  int? _selectedSubCategoryId;
+  MasterDataModel? _selectedSubCategoryModel;
+
+  int? _selectedTopicId;
+  MasterDataModel? _selectedTopicModel;
+
+  final SessionRepository _sessionRepo = SessionRepository();
+
   bool get _isEditMode => widget.editThread != null;
 
   @override
@@ -38,9 +53,35 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
     super.initState();
     if (_isEditMode) {
       _contentController.text = widget.editThread!.content;
-      // Pre-populate jabatan dan user yang sudah dipilih sebelumnya (mode edit)
       _selectedLevelIds = List.from(widget.editThread!.selectedLevelIds);
       _selectedUserIds = List.from(widget.editThread!.selectedUserIds);
+      
+      // Pre-fill Topic
+      _selectedTopicId = widget.editThread!.topicId;
+      if (_selectedTopicId != null) {
+        _selectedTopicModel = MasterDataModel(
+          id: _selectedTopicId!,
+          text: widget.editThread!.topicName ?? 'Topik Terpilih',
+        );
+      }
+
+      // Pre-fill Sub-Category
+      _selectedSubCategoryId = widget.editThread!.subCategoryId;
+      if (_selectedSubCategoryId != null) {
+        _selectedSubCategoryModel = MasterDataModel(
+          id: _selectedSubCategoryId!,
+          text: widget.editThread!.subCategoryName ?? 'Sub-Kategori Terpilih',
+        );
+      }
+
+      // Pre-fill Category
+      _selectedCategoryId = widget.editThread!.categoryId;
+      if (_selectedCategoryId != null) {
+        _selectedCategoryModel = MasterDataModel(
+          id: _selectedCategoryId!,
+          text: widget.editThread!.categoryName ?? 'Kategori Terpilih',
+        );
+      }
     }
   }
 
@@ -155,6 +196,80 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                     ),
                   ),
 
+                  // ─── Cascading Selectors ──────────────────────────────────
+                  const FormLabel(
+                    text: "KATEGORI (Opsional untuk filter topik)",
+                  ),
+                  SearchableDropdownField(
+                    hintText: "Pilih Kategori",
+                    selectedItem: _selectedCategoryModel,
+                    onSearch: (keyword) =>
+                        _sessionRepo.getCategories(search: keyword),
+                    onChanged: (item) {
+                      if (item != null && item.id != _selectedCategoryId) {
+                        setState(() {
+                          _selectedCategoryId = item.id;
+                          _selectedCategoryModel = item;
+                          _selectedSubCategoryId = null;
+                          _selectedSubCategoryModel = null;
+                          _selectedTopicId = null;
+                          _selectedTopicModel = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_selectedCategoryId != null) ...[
+                    const FormLabel(
+                      text: "SUB-KATEGORI (Opsional untuk filter topik)",
+                    ),
+                    SearchableDropdownField(
+                      hintText: "Pilih Sub-Kategori",
+                      selectedItem: _selectedSubCategoryModel,
+                      onSearch: (keyword) => _sessionRepo.getSubCategories(
+                        _selectedCategoryId!,
+                        search: keyword,
+                      ),
+                      onChanged: (item) {
+                        if (item != null && item.id != _selectedSubCategoryId) {
+                          setState(() {
+                            _selectedSubCategoryId = item.id;
+                            _selectedSubCategoryModel = item;
+                            _selectedTopicId = null;
+                            _selectedTopicModel = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (_selectedSubCategoryId != null) ...[
+                    const FormLabel(text: "TOPIK", optional: true),
+                    SearchableDropdownField(
+                      hintText: "Pilih Topik",
+                      selectedItem: _selectedTopicModel,
+                      onSearch: (keyword) => _sessionRepo.getTopics(
+                        _selectedSubCategoryId!,
+                        search: keyword,
+                      ),
+                      onChanged: (item) {
+                        setState(() {
+                          if (item != null) {
+                            _selectedTopicId = item.id;
+                            _selectedTopicModel = item;
+                          } else {
+                            _selectedTopicId = null;
+                            _selectedTopicModel = null;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  // ────────────────────────────────────────────────────────
+
                   // ─── Jabatan & User Spesifik selector ───────────────────
                   ThreadTargetSelector(
                     initialLevelIds: _selectedLevelIds,
@@ -166,8 +281,8 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                       setState(() => _selectedUserIds = ids);
                     },
                   ),
-                  // ────────────────────────────────────────────────────────
 
+                  // ────────────────────────────────────────────────────────
                   const SizedBox(height: 16),
 
                   // Existing attachments (edit mode)
@@ -214,14 +329,18 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
           runSpacing: 8,
           children: remaining.map((att) {
             final isImage = att.isImage;
+            final isVideo = att.isVideo;
+            
             return Stack(
               children: [
                 Container(
-                  width: isImage ? 100 : null,
-                  height: isImage ? 100 : null,
+                  width: (isImage || isVideo) ? 100 : null,
+                  height: (isImage || isVideo) ? 100 : null,
+                  constraints: const BoxConstraints(maxWidth: 180),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade200),
+                    color: Colors.white,
                   ),
                   child: isImage
                       ? ClipRRect(
@@ -235,23 +354,54 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                             ),
                           ),
                         )
+                      : isVideo
+                      ? Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.videocam, color: AppColors.primary),
+                              SizedBox(height: 4),
+                              Text(
+                                'Video',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       : Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 8,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.attach_file,
+                                Icons.insert_drive_file,
                                 size: 16,
                                 color: Colors.grey.shade500,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                att.originalName ?? 'File',
-                                style: const TextStyle(fontSize: 12),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  att.originalName ?? 'File',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -312,34 +462,67 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
             return Stack(
               children: [
                 Container(
-                  width: isImage ? 100 : null,
-                  height: isImage ? 100 : null,
+                  width: (isImage || _isVideoFile(file.path)) ? 100 : null,
+                  height: (isImage || _isVideoFile(file.path)) ? 100 : null,
+                  constraints: const BoxConstraints(maxWidth: 180),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade200),
+                    color: Colors.white,
                   ),
                   child: isImage
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: Image.file(file, fit: BoxFit.cover),
                         )
+                      : _isVideoFile(file.path)
+                      ? Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.videocam, color: AppColors.primary),
+                              SizedBox(height: 4),
+                              Text(
+                                'Video',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       : Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 8,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.attach_file,
+                                Icons.insert_drive_file,
                                 size: 16,
                                 color: Colors.grey.shade500,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                file.path.split(Platform.pathSeparator).last,
-                                style: const TextStyle(fontSize: 12),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  file.path.split(Platform.pathSeparator).last,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -413,46 +596,50 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Wrap(
-              children: [
-                ListTile(
-                  leading: const Icon(
-                    Icons.camera_alt,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Kamera'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _takePhoto();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.photo_library,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Galeri Gambar'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickImages();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.insert_drive_file,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('Dokumen'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickFiles();
-                  },
-                ),
-              ],
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Ambil Foto'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takePhoto();
+              },
             ),
-          ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: AppColors.primary),
+              title: const Text('Ambil Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takeVideo();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.perm_media_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Galeri Media (Foto & Video)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickMedia();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.insert_drive_file,
+                color: AppColors.primary,
+              ),
+              title: const Text('Dokumen'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickFiles();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -490,12 +677,11 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
 
       final result = await showDialog<bool>(
         context: context,
-        builder:
-            (ctx) => ImagePreviewDialog(
-              imagePath: image.path,
-              onSend: () => Navigator.pop(ctx, true),
-              onRetake: () => Navigator.pop(ctx, false),
-            ),
+        builder: (ctx) => ImagePreviewDialog(
+          imagePath: image.path,
+          onSend: () => Navigator.pop(ctx, true),
+          onRetake: () => Navigator.pop(ctx, false),
+        ),
       );
 
       if (result == true) {
@@ -508,13 +694,27 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
     }
   }
 
-  Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage(imageQuality: 80);
+  Future<void> _takeVideo() async {
+    final status = await Permission.camera.status;
+    if (status.isDenied) await Permission.camera.request();
+    if (!status.isGranted) return;
 
-    if (images.isNotEmpty) {
+    final picker = ImagePicker();
+    final video = await picker.pickVideo(source: ImageSource.camera);
+    if (video != null) {
       setState(() {
-        _selectedFiles.addAll(images.map((xfile) => File(xfile.path)));
+        _selectedFiles.add(File(video.path));
+      });
+    }
+  }
+
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final media = await picker.pickMultipleMedia();
+
+    if (media.isNotEmpty) {
+      setState(() {
+        _selectedFiles.addAll(media.map((xfile) => File(xfile.path)));
       });
     }
   }
@@ -561,10 +761,13 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
         uuid: widget.editThread!.id,
         content: content,
         newAttachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
-        deleteAttachmentIds:
-            _deleteAttachmentIds.isNotEmpty ? _deleteAttachmentIds : null,
+        deleteAttachmentIds: _deleteAttachmentIds.isNotEmpty
+            ? _deleteAttachmentIds
+            : null,
         levelIds: _selectedLevelIds,
         visibleUserIds: _selectedUserIds,
+        topicId: _selectedTopicId,
+        clearTopic: _selectedTopicId == null,
       );
     } else {
       context.read<CreateThreadCubit>().createThread(
@@ -572,8 +775,14 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
         attachments: _selectedFiles.isNotEmpty ? _selectedFiles : null,
         levelIds: _selectedLevelIds,
         visibleUserIds: _selectedUserIds,
+        topicId: _selectedTopicId,
       );
     }
+  }
+
+  bool _isVideoFile(String path) {
+    final ext = path.toLowerCase().split('.').last;
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext);
   }
 
   bool _isImageFile(String path) {

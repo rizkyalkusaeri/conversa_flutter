@@ -4,6 +4,10 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/network/pagination_response.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/user_model.dart';
+import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
+import '../../../core/utils/error_helper.dart';
+
 
 class SessionService {
   final Dio _dio = DioClient.getInstance;
@@ -32,7 +36,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat daftar sesi (Chat): $e');
+      rethrow;
     }
   }
 
@@ -41,6 +45,8 @@ class SessionService {
     String? status,
     int limit = 20,
     String? search,
+    int? userId,
+    String? scope,
   }) async {
     try {
       final Map<String, dynamic> queryParams = {
@@ -56,6 +62,14 @@ class SessionService {
         queryParams['search'] = search;
       }
 
+      if (userId != null) {
+        queryParams['user_id'] = userId;
+      }
+
+      if (scope != null && scope.isNotEmpty) {
+        queryParams['scope'] = scope;
+      }
+
       final response = await _dio.get('/global/sessions', queryParameters: queryParams);
 
       return PaginationResponse<SessionModel>.fromJson(
@@ -63,7 +77,33 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal memuat daftar sesi global: $e');
+      rethrow;
+    }
+  }
+
+  Future<PaginationResponse<UserModel>> getGlobalUsers({
+    required int page,
+    int limit = 20,
+    String? search,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {
+        'page': page,
+        'limit': limit,
+      };
+
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+
+      final response = await _dio.get('/global/users', queryParameters: queryParams);
+
+      return PaginationResponse<UserModel>.fromJson(
+        response.data,
+        (json) => UserModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -76,29 +116,40 @@ class SessionService {
       );
     } on DioException catch (e) {
       if (e.response != null && e.response?.data != null) {
-        final data = e.response!.data is Map ? e.response!.data : {};
-        String errorMessage = data['message'] ?? 'Gagal membuat sesi';
-        
-        if (data['errors'] != null && data['errors'] is Map) {
-          final Map errors = data['errors'];
-          if (errors.isNotEmpty) {
-            final firstKey = errors.keys.first;
-            final errorValues = errors[firstKey];
-            if (errorValues is List && errorValues.isNotEmpty) {
-              errorMessage = errorValues.first.toString();
-            } else if (errorValues is String) {
-              errorMessage = errorValues;
-            }
+        final resData = e.response!.data is Map ? e.response!.data as Map : {};
+        final String errorMessage = resData['message'] ?? 'Gagal membuat sesi';
+        final errors = resData['errors'];
+
+        // Cek pending_session_uuid di errors (bukan di data)
+        if (e.response!.statusCode == 403 &&
+            errors is Map &&
+            errors['pending_session_uuid'] != null) {
+          throw PendingFeedbackException(
+            message: errorMessage,
+            pendingSessionUuid: errors['pending_session_uuid'].toString(),
+          );
+        }
+
+        // Parse validation errors biasa
+        if (errors != null && errors is Map && errors.isNotEmpty) {
+          final firstKey = errors.keys.first;
+          final errorValues = errors[firstKey];
+          if (errorValues is List && errorValues.isNotEmpty) {
+            throw Exception(errorValues.first.toString());
+          } else if (errorValues is String) {
+            throw Exception(errorValues);
           }
         }
-        
-        throw Exception(errorMessage);
       }
-      throw Exception('Gagal membuat sesi: ${e.message}');
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    } on PendingFeedbackException {
+      // Rethrow tanpa membungkus — agar cubit dapat menangani dialog rating
+      rethrow;
     } catch (e) {
-      throw Exception('Terjadi kesalahan tak terduga: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
+
 
   Future<ApiResponse<SessionModel>> requestClose(String uuid) async {
     try {
@@ -108,7 +159,26 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal meminta penutupan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
+
+  Future<ApiResponse<SessionModel>> submitFeedback(
+      String uuid, int rating, String? feedback) async {
+    try {
+      final response = await _dio.post(
+        '/sessions/$uuid/submit-feedback',
+        data: {
+          'rating': rating,
+          if (feedback != null && feedback.isNotEmpty) 'feedback': feedback,
+        },
+      );
+      return ApiResponse<SessionModel>.fromJson(
+        response.data,
+        (json) => SessionModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -120,7 +190,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal menolak penutupan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -136,7 +206,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal menyelesaikan sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -148,7 +218,7 @@ class SessionService {
         (json) => SessionModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      throw Exception('Gagal mengajukan pembukaan kembali sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -158,7 +228,7 @@ class SessionService {
       final data = response.data['data'];
       return SessionModel.fromJson(data as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Gagal memuat detail sesi: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 
@@ -168,7 +238,24 @@ class SessionService {
       final listData = response.data['data'] as List<dynamic>? ?? [];
       return listData.map((e) => MasterDataModel.fromJson(e, keyName)).toList();
     } catch (e) {
-      throw Exception('Gagal load master data $endpoint: $e');
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
+
+  /// Khusus untuk endpoint resolvers — parse role dan jabatan sebagai subtitle
+  Future<List<MasterDataModel>> getResolvers({required int categoryId, String? search, String? tujuan}) async {
+    try {
+      final Map<String, dynamic> queryParams = {'category_id': categoryId};
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (tujuan != null && tujuan.isNotEmpty) queryParams['tujuan'] = tujuan;
+
+      final response = await _dio.get('/master/resolvers', queryParameters: queryParams);
+      final listData = response.data['data'] as List<dynamic>? ?? [];
+      return listData
+          .map((e) => MasterDataModel.fromResolverJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
 }

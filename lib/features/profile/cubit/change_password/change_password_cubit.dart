@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/auth_repository.dart';
+import '../../../../core/utils/error_helper.dart';
 import 'change_password_state.dart';
+
 
 class ChangePasswordCubit extends Cubit<ChangePasswordState> {
   final AuthRepository _authRepository;
@@ -32,7 +34,7 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
       emit(
         state.copyWith(
           status: ChangePasswordStatus.error,
-          message: e.toString().replaceFirst('Exception: ', ''),
+          message: ErrorHelper.getFriendlyError(e),
         ),
       );
     }

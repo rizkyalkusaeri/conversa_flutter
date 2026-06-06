@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
+import '../../../core/utils/error_helper.dart';
 import 'session_action_state.dart';
 
 class SessionActionCubit extends Cubit<SessionActionState> {
@@ -15,7 +16,7 @@ class SessionActionCubit extends Cubit<SessionActionState> {
       final session = await _repository.requestClose(uuid);
       emit(SessionActionSuccess(session, 'Permintaan tutup sesi berhasil dikirim', 'request_close'));
     } catch (e) {
-      emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'request_close'));
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'request_close'));
     }
   }
 
@@ -25,7 +26,7 @@ class SessionActionCubit extends Cubit<SessionActionState> {
       final session = await _repository.rejectClose(uuid);
       emit(SessionActionSuccess(session, 'Permintaan tutup sesi telah ditolak', 'reject_close'));
     } catch (e) {
-      emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'reject_close'));
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'reject_close'));
     }
   }
 
@@ -35,7 +36,7 @@ class SessionActionCubit extends Cubit<SessionActionState> {
       final session = await _repository.completeSession(uuid, rating: rating, feedback: feedback);
       emit(SessionActionSuccess(session, 'Sesi berhasil ditutup', 'complete_session'));
     } catch (e) {
-      emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'complete_session'));
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'complete_session'));
     }
   }
 
@@ -45,7 +46,17 @@ class SessionActionCubit extends Cubit<SessionActionState> {
       final session = await _repository.reopenSession(uuid);
       emit(SessionActionSuccess(session, 'Permintaan buka kembali berhasil dikirim', 'reopen_session'));
     } catch (e) {
-      emit(SessionActionError(e.toString().replaceFirst('Exception: ', ''), 'reopen_session'));
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'reopen_session'));
+    }
+  }
+
+  Future<void> submitRating(String uuid, int rating, String? feedback) async {
+    emit(const SessionActionLoading('submit_rating'));
+    try {
+      final session = await _repository.submitFeedback(uuid, rating, feedback);
+      emit(SessionActionSuccess(session, 'Penilaian berhasil dikirim', 'submit_rating'));
+    } catch (e) {
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'submit_rating'));
     }
   }
 }

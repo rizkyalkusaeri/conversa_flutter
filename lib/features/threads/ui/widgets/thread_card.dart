@@ -1,8 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_config.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/video_attachment_widget.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class ThreadCard extends StatelessWidget {
   final ThreadModel thread;
@@ -10,6 +13,7 @@ class ThreadCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLike;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const ThreadCard({
     super.key,
@@ -18,6 +22,7 @@ class ThreadCard extends StatelessWidget {
     required this.onTap,
     required this.onLike,
     this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -57,6 +62,20 @@ class ThreadCard extends StatelessWidget {
               _buildAttachmentGrid(),
             ],
 
+            // Video Attachments
+            if (_videoAttachments.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ..._videoAttachments.map((v) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: VideoAttachmentWidget(
+                    videoUrl: '${ApiConfig.imageUrl}${v.url}',
+                  ),
+                ),
+              )),
+            ],
+
             const SizedBox(height: 12),
 
             // Action bar: Like + Comment
@@ -70,6 +89,9 @@ class ThreadCard extends StatelessWidget {
   List<ThreadAttachment> get _imageAttachments =>
       thread.attachments.where((a) => a.isImage).toList();
 
+  List<ThreadAttachment> get _videoAttachments =>
+      thread.attachments.where((a) => a.isVideo).toList();
+
   Widget _buildHeader(BuildContext context) {
     final initials = _getInitials(thread.author.name);
     final isOwner = currentUserId != null && thread.author.id == currentUserId;
@@ -78,15 +100,22 @@ class ThreadCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Avatar
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: AppColors.primaryContainer,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+        GestureDetector(
+          onTap: () {
+            if (thread.author.id != null) {
+              UserProfilePopup.show(context, thread.author.id!);
+            }
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundColor: AppColors.primaryContainer,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
         ),
@@ -119,81 +148,134 @@ class ThreadCard extends StatelessWidget {
               ),
               if (thread.visibleToLevels.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Builder(builder: (context) {
-                  const maxDisplay = 3;
-                  final displayList = thread.visibleToLevels.take(maxDisplay).toList();
-                  final remainingCount = thread.visibleToLevels.length - maxDisplay;
+                Builder(
+                  builder: (context) {
+                    const maxDisplay = 3;
+                    final displayList = thread.visibleToLevels
+                        .take(maxDisplay)
+                        .toList();
+                    final remainingCount =
+                        thread.visibleToLevels.length - maxDisplay;
 
-                  return Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: [
-                      ...displayList.map((level) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha(20),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          level,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      )),
-                      if (remainingCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '+$remainingCount lainnya',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade600,
+                    return Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        ...displayList.map(
+                          (level) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withAlpha(20),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              level,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                         ),
+                        if (remainingCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '+$remainingCount lainnya',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+              if (thread.topicName != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tag, size: 10, color: AppColors.secondary),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '${thread.categoryName} > ${thread.subCategoryName} > ${thread.topicName}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
-                  );
-                }),
+                  ),
+                ),
               ],
             ],
           ),
         ),
 
-        // Menu (edit — only for owner)
-        if (isOwner && onEdit != null)
+        // Menu (edit/delete — only for owner)
+        if (isOwner && (onEdit != null || onDelete != null))
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'edit') onEdit!();
+              if (value == 'edit' && onEdit != null) onEdit!();
+              if (value == 'delete' && onDelete != null) onDelete!();
             },
             icon: Icon(Icons.more_horiz, color: Colors.grey.shade400, size: 20),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 18, color: AppColors.textDark),
-                    SizedBox(width: 8),
-                    Text('Edit Thread'),
-                  ],
+              if (onEdit != null)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18, color: AppColors.textDark),
+                      SizedBox(width: 8),
+                      Text('Edit Thread'),
+                    ],
+                  ),
                 ),
-              ),
+              if (onDelete != null)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Hapus Thread', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
             ],
           ),
       ],
     );
   }
-
 
   Widget _buildAttachmentGrid() {
     final images = _imageAttachments;
@@ -253,12 +335,12 @@ class ThreadCard extends StatelessWidget {
 
   Widget _buildNetworkImage(String relativeUrl, {double? height}) {
     final fullUrl = '${ApiConfig.imageUrl}$relativeUrl';
-    return Image.network(
-      fullUrl,
+    return CachedNetworkImage(
+      imageUrl: fullUrl,
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(
+      errorWidget: (_, _, _) => Container(
         height: height,
         color: Colors.grey.shade200,
         child: const Center(

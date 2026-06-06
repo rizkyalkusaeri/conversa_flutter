@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
+import 'package:fifgroup_android_ticketing/core/utils/file_validator.dart';
+import '../../../core/utils/error_helper.dart';
 import 'create_thread_state.dart';
 
 class CreateThreadCubit extends Cubit<CreateThreadState> {
@@ -20,6 +22,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     List<File>? attachments,
     List<int>? levelIds,
     List<int>? visibleUserIds,
+    int? topicId,
   }) async {
     emit(CreateThreadLoading());
 
@@ -28,9 +31,14 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
         'content': content,
       };
 
+      if (topicId != null) {
+        map['topic_id'] = topicId;
+      }
+
       if (attachments != null && attachments.isNotEmpty) {
         final files = <MultipartFile>[];
         for (final file in attachments) {
+          await FileValidator.validateSize(file.path);
           files.add(await MultipartFile.fromFile(
             file.path,
             filename: file.path.split(Platform.pathSeparator).last,
@@ -58,8 +66,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
 
       emit(const CreateThreadSuccess('Thread berhasil dipublikasikan.'));
     } catch (e) {
-      emit(CreateThreadError(
-          e.toString().replaceFirst('Exception: ', '')));
+      emit(CreateThreadError(ErrorHelper.getFriendlyError(e)));
     }
   }
 
@@ -74,6 +81,8 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
     List<int>? deleteAttachmentIds,
     List<int>? levelIds,
     List<int>? visibleUserIds,
+    int? topicId,
+    bool clearTopic = false,
   }) async {
     emit(CreateThreadLoading());
 
@@ -82,9 +91,16 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
         'content': content,
       };
 
+      if (clearTopic) {
+        map['topic_id'] = null; // Backend expects null to clear
+      } else if (topicId != null) {
+        map['topic_id'] = topicId;
+      }
+
       if (newAttachments != null && newAttachments.isNotEmpty) {
         final files = <MultipartFile>[];
         for (final file in newAttachments) {
+          await FileValidator.validateSize(file.path);
           files.add(await MultipartFile.fromFile(
             file.path,
             filename: file.path.split(Platform.pathSeparator).last,
@@ -127,8 +143,7 @@ class CreateThreadCubit extends Cubit<CreateThreadState> {
 
       emit(const CreateThreadSuccess('Thread berhasil diperbarui.'));
     } catch (e) {
-      emit(CreateThreadError(
-          e.toString().replaceFirst('Exception: ', '')));
+      emit(CreateThreadError(ErrorHelper.getFriendlyError(e)));
     }
   }
 

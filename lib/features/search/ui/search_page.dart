@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fifgroup_android_ticketing/core/services/realtime_event_bus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -7,6 +8,7 @@ import '../cubit/search_cubit.dart';
 import '../cubit/search_state.dart';
 import '../cubit/global_chat_cubit.dart';
 import 'global_chat_history_page.dart';
+import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -15,26 +17,66 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
-  final ScrollController _scrollController = ScrollController();
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
+  final ScrollController _sessionsScrollController = ScrollController();
+  final ScrollController _usersScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  late TabController _tabController;
   String _selectedStatus = 'all';
   late SearchCubit _cubit;
   Timer? _debounce;
+
+  StreamSubscription? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
     _cubit = SearchCubit()..loadInitial();
-    _scrollController.addListener(_onScroll);
+    _sessionsScrollController.addListener(_onSessionsScroll);
+    _usersScrollController.addListener(_onUsersScroll);
+    _tabController = TabController(length: 2, vsync: this);
+
+    // Auto-refresh saat signal dikirim dari MainPage (misal pindah tab)
+    _refreshSubscription = RealtimeEventBus.instance.onSearchRefresh.listen((
+      _,
+    ) {
+      if (mounted) {
+        final state = _cubit.state;
+        if (state is SearchLoaded) {
+          _cubit.loadInitial(
+            searchQuery: _searchController.text,
+            statusFilter: _selectedStatus,
+            selectedUserId: state.selectedUserId,
+            selectedUserName: state.selectedUserName,
+            scope: state.scope,
+          );
+        } else {
+          _cubit.loadInitial(
+            searchQuery: _searchController.text,
+            statusFilter: _selectedStatus,
+          );
+        }
+      }
+    });
   }
 
-  void _onScroll() {
-    if (_scrollController.hasClients) {
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final currentScroll = _scrollController.offset;
+  void _onSessionsScroll() {
+    if (_sessionsScrollController.hasClients) {
+      final maxScroll = _sessionsScrollController.position.maxScrollExtent;
+      final currentScroll = _sessionsScrollController.offset;
       if (currentScroll >= (maxScroll * 0.9)) {
-        _cubit.loadMore();
+        _cubit.loadMoreSessions();
+      }
+    }
+  }
+
+  void _onUsersScroll() {
+    if (_usersScrollController.hasClients) {
+      final maxScroll = _usersScrollController.position.maxScrollExtent;
+      final currentScroll = _usersScrollController.offset;
+      if (currentScroll >= (maxScroll * 0.9)) {
+        _cubit.loadMoreUsers();
       }
     }
   }
@@ -48,9 +90,12 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _sessionsScrollController.dispose();
+    _usersScrollController.dispose();
     _searchController.dispose();
+    _tabController.dispose();
     _debounce?.cancel();
+    _refreshSubscription?.cancel();
     _cubit.close();
     super.dispose();
   }
@@ -76,78 +121,22 @@ class _SearchPageState extends State<SearchPage> {
         ),
         body: Column(
           children: [
+            TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.primary,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+              tabs: const [
+                Tab(text: 'Sesi'),
+                Tab(text: 'User'),
+              ],
+            ),
             _buildSearchBar(),
-            _buildFilters(),
             Expanded(
-              child: BlocBuilder<SearchCubit, SearchState>(
-                builder: (context, state) {
-                  if (state is SearchInitial || state is SearchLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (state is SearchError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            state.message,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: () =>
-                                context.read<SearchCubit>().loadInitial(),
-                            child: const Text("Coba Lagi"),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  if (state is SearchLoaded) {
-                    if (state.sessions.isEmpty) {
-                      return Center(
-                        child: Text(
-                          "Tidak ada sesi ditemukan.",
-                          style: TextStyle(color: Colors.grey.shade500),
-                        ),
-                      );
-                    }
-                    return RefreshIndicator(
-                      onRefresh: () async {
-                        await context.read<SearchCubit>().loadInitial(
-                          searchQuery: state.searchQuery,
-                          statusFilter: state.statusFilter,
-                        );
-                      },
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        controller: _scrollController,
-                        itemCount: state.hasReachedMax
-                            ? state.sessions.length
-                            : state.sessions.length + 1,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1, color: Color(0xFFF5F5F5)),
-                        itemBuilder: (context, index) {
-                          if (index >= state.sessions.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            );
-                          }
-                          return _buildSessionTile(
-                            context,
-                            state.sessions[index],
-                          );
-                        },
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildSessionsTab(), _buildUsersTab()],
               ),
             ),
           ],
@@ -163,7 +152,7 @@ class _SearchPageState extends State<SearchPage> {
         controller: _searchController,
         onChanged: _onSearchChanged,
         decoration: InputDecoration(
-          hintText: 'Cari tiket, topik, no appl...',
+          hintText: 'Cari tiket, topik, no appl, atau nama...',
           prefixIcon: const Icon(Icons.search, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
@@ -180,10 +169,58 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  Widget _buildActiveFilterIndicator() {
+    return BlocBuilder<SearchCubit, SearchState>(
+      builder: (context, state) {
+        if (state is SearchLoaded && state.selectedUserName != null) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.filter_alt_outlined,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Memfilter: ${state.selectedUserName}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    _cubit.clearUserFilter();
+                  },
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   Widget _buildFilters() {
     return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      height: 40,
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -219,6 +256,280 @@ class _SearchPageState extends State<SearchPage> {
         side: BorderSide.none,
         showCheckmark: false,
       ),
+    );
+  }
+
+  Widget _buildSessionsTab() {
+    return Column(
+      children: [
+        _buildActiveFilterIndicator(),
+        _buildFilters(),
+        Expanded(
+          child: BlocBuilder<SearchCubit, SearchState>(
+            builder: (context, state) {
+              if (state is SearchInitial || state is SearchLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (state is SearchError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          size: 56,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          state.message,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () => context
+                              .read<SearchCubit>()
+                              .loadInitial(searchQuery: ''),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Coba Lagi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              if (state is SearchLoaded) {
+                if (state.sessions.isEmpty) {
+                  return Center(
+                    child: Text(
+                      "Tidak ada sesi ditemukan.",
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    await context.read<SearchCubit>().loadInitial(
+                      searchQuery: state.searchQuery,
+                      statusFilter: state.statusFilter,
+                      selectedUserId: state.selectedUserId,
+                      selectedUserName: state.selectedUserName,
+                      scope: state.scope,
+                    );
+                  },
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    controller: _sessionsScrollController,
+                    itemCount: state.hasReachedMax
+                        ? state.sessions.length
+                        : state.sessions.length + 1,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                    itemBuilder: (context, index) {
+                      if (index >= state.sessions.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+                      return _buildSessionTile(context, state.sessions[index]);
+                    },
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsersTab() {
+    return BlocBuilder<SearchCubit, SearchState>(
+      builder: (context, state) {
+        if (state is SearchInitial || state is SearchLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (state is SearchError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 56,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<SearchCubit>().loadInitial(
+                      searchQuery: '',
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Coba Lagi'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (state is SearchLoaded) {
+          final users = state.users;
+          final showSubordinatesBtn = users.length > 1;
+
+          return Column(
+            children: [
+              if (showSubordinatesBtn)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _cubit.selectSubordinatesFilter();
+                        _tabController.animateTo(0); // Switch to Sessions tab
+                      },
+                      icon: const Icon(Icons.people_outline, size: 18),
+                      label: const Text('Tampilkan Sesi Saya & Bawahan'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: users.isEmpty
+                    ? Center(
+                        child: Text(
+                          "Tidak ada user ditemukan.",
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          await _cubit.loadInitial(
+                            searchQuery: state.searchQuery,
+                            statusFilter: state.statusFilter,
+                            selectedUserId: state.selectedUserId,
+                            selectedUserName: state.selectedUserName,
+                            scope: state.scope,
+                          );
+                        },
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          controller: _usersScrollController,
+                          itemCount: state.usersHasReachedMax
+                              ? users.length
+                              : users.length + 1,
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: Color(0xFFF5F5F5),
+                          ),
+                          itemBuilder: (context, index) {
+                            if (index >= users.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            }
+                            final user = users[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.primary.withOpacity(
+                                  0.1,
+                                ),
+                                child: Text(
+                                  user.fullName.isNotEmpty
+                                      ? user.fullName[0].toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                user.fullName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${user.level ?? '-'} | ${user.location ?? '-'}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
+                              onTap: () {
+                                _cubit.selectUserFilter(user);
+                                _tabController.animateTo(
+                                  0,
+                                ); // Switch to Sessions tab
+                              },
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 
@@ -260,7 +571,7 @@ class _SearchPageState extends State<SearchPage> {
             border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.06),
+                color: Colors.grey.withOpacity(0.06),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -289,7 +600,7 @@ class _SearchPageState extends State<SearchPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
+                          color: statusColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -371,7 +682,13 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.person_outline,
                       session.requesterName ?? '-',
-                      'Pembuat',
+                      'Pemohon',
+                      onTap: session.requesterId != null
+                          ? () => UserProfilePopup.show(
+                              context,
+                              session.requesterId!,
+                            )
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -381,7 +698,13 @@ class _SearchPageState extends State<SearchPage> {
                     child: _buildPersonChip(
                       Icons.support_agent_outlined,
                       session.resolverName ?? 'Menunggu',
-                      'Penjawab',
+                      'Penyelesai',
+                      onTap: session.resolverId != null
+                          ? () => UserProfilePopup.show(
+                              context,
+                              session.resolverId!,
+                            )
+                          : null,
                     ),
                   ),
                 ],
@@ -393,37 +716,49 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildPersonChip(IconData icon, String name, String role) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                role,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.grey.shade400,
-                  fontWeight: FontWeight.bold,
-                ),
+  Widget _buildPersonChip(
+    IconData icon,
+    String name,
+    String role, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    role,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey.shade400,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textDark,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -475,8 +810,22 @@ class _SearchPageState extends State<SearchPage> {
                   _buildDetailRow('No. Appl', session.noAppl!),
                 if (!session.isHaveUniqueId && session.topicName != null)
                   _buildDetailRow('Topik', session.topicName!),
-                _buildDetailRow('Pembuat', session.requesterName ?? '-'),
-                _buildDetailRow('Penjawab', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow(
+                  'Pemohon',
+                  session.requesterName ?? '-',
+                  onTap: session.requesterId != null
+                      ? () =>
+                            UserProfilePopup.show(context, session.requesterId!)
+                      : null,
+                ),
+                _buildDetailRow(
+                  'Penyelesai',
+                  session.resolverName ?? 'Menunggu',
+                  onTap: session.resolverId != null
+                      ? () =>
+                            UserProfilePopup.show(context, session.resolverId!)
+                      : null,
+                ),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(
@@ -523,7 +872,7 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -541,9 +890,19 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12, color: AppColors.textDark),
+            child: GestureDetector(
+              onTap: onTap,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: onTap != null ? AppColors.primary : AppColors.textDark,
+                  decoration: onTap != null ? TextDecoration.underline : null,
+                  fontWeight: onTap != null
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ],

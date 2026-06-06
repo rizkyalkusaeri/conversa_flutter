@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
 import 'package:fifgroup_android_ticketing/data/models/master_data_model.dart';
+import 'package:fifgroup_android_ticketing/core/exceptions/pending_feedback_exception.dart';
+import '../../../core/utils/error_helper.dart';
 import 'create_session_state.dart';
 
 class CreateSessionCubit extends Cubit<CreateSessionState> {
@@ -29,12 +31,12 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       emit(newState);
       
     } catch (e) {
-      emit(CreateSessionError("Gagal mengambil data kategori: $e"));
+      emit(CreateSessionError("Gagal mengambil data kategori: ${ErrorHelper.getFriendlyError(e)}"));
     }
   }
 
   // Dipanggil ketika dropdown Kategori berubah
-  Future<void> onCategorySelected(int categoryId) async {
+  Future<void> onCategorySelected(int categoryId, String? tujuan) async {
     if (state is CreateSessionFormState) {
       final currentState = state as CreateSessionFormState;
       
@@ -48,20 +50,52 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       ));
 
       try {
-        final futures = await Future.wait([
-          _repository.getSubCategories(categoryId),
-          _repository.getResolvers(categoryId),
-        ]);
+        final subCategories = await _repository.getSubCategories(categoryId);
+        List<MasterDataModel> resolvers = [];
+        if (tujuan != null && tujuan.isNotEmpty) {
+          resolvers = await _repository.getResolvers(categoryId, tujuan: tujuan);
+        }
 
         final newState = currentState.copyWith(
           isLoadingCategoryData: false,
-          subCategories: futures[0],
-          resolvers: futures[1],
+          subCategories: subCategories,
+          resolvers: resolvers,
         );
         _lastFormState = newState;
         emit(newState);
       } catch (e) {
-        emit(CreateSessionError("Gagal mengambil subordinat kategori: $e"));
+        emit(CreateSessionError("Gagal mengambil subordinat kategori: ${ErrorHelper.getFriendlyError(e)}"));
+        if (_lastFormState != null) emit(_lastFormState!);
+      }
+    }
+  }
+
+  // Dipanggil ketika dropdown Tujuan berubah
+  Future<void> onTujuanSelected(String tujuan, int? categoryId) async {
+    if (state is CreateSessionFormState) {
+      final currentState = state as CreateSessionFormState;
+      
+      if (categoryId == null) {
+        // Belum bisa fetch resolver karena kategori belum dipilih
+        return;
+      }
+
+      emit(currentState.copyWith(
+        isLoadingCategoryData: true,
+        resolvers: [],
+      ));
+
+      try {
+        final resolvers = await _repository.getResolvers(categoryId, tujuan: tujuan);
+
+        final newState = currentState.copyWith(
+          isLoadingCategoryData: false,
+          resolvers: resolvers,
+        );
+        _lastFormState = newState;
+        emit(newState);
+      } catch (e) {
+        emit(CreateSessionError("Gagal mengambil data resolver: ${ErrorHelper.getFriendlyError(e)}"));
         if (_lastFormState != null) emit(_lastFormState!);
       }
     }
@@ -90,7 +124,7 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
           _lastFormState = newState;
           emit(newState);
         } catch (e) {
-          emit(CreateSessionError("Gagal mengambil data Topik: $e"));
+          emit(CreateSessionError("Gagal mengambil data Topik: ${ErrorHelper.getFriendlyError(e)}"));
           if (_lastFormState != null) emit(_lastFormState!);
         }
       } else {
@@ -119,11 +153,18 @@ class CreateSessionCubit extends Cubit<CreateSessionState> {
       try {
         final session = await _repository.createSession(data);
         emit(CreateSessionSuccess(session));
+      } on PendingFeedbackException catch (e) {
+        emit(CreateSessionPendingFeedback(
+          message: e.message,
+          pendingSessionUuid: e.pendingSessionUuid,
+        ));
+        if (_lastFormState != null) emit(_lastFormState!);
       } catch (e) {
-        emit(CreateSessionError(e.toString().replaceFirst('Exception: ', ''), isDuringSubmit: true));
+        emit(CreateSessionError(ErrorHelper.getFriendlyError(e), isDuringSubmit: true));
         // Kembalikan form state agar User dapat mencoba lagi
         if (_lastFormState != null) emit(_lastFormState!);
       }
     }
   }
 }
+

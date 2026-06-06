@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:laravel_echo/laravel_echo.dart';
 import 'package:pusher_client_fixed/pusher_client_fixed.dart';
 import 'package:flutter/foundation.dart';
 import 'api_config.dart';
+import 'connectivity_service.dart';
 import '../storage/storage_manager.dart';
 
 class EchoService {
@@ -12,6 +14,9 @@ class EchoService {
   static bool _isInitializing = false; // Guard untuk mencegah init() paralel
   static bool _isSubscribed = false;   // True setelah subscription channel berhasil diauth
   static int? _lastUserId;
+
+  // Subscription ke ConnectivityService — dibersihkan saat disconnect()
+  static StreamSubscription<ConnectivityStatus>? _connectivitySub;
 
   static bool get isConnected => _isConnected;
   /// isSubscribed = true berarti private channel berhasil diauth ke server.
@@ -178,8 +183,31 @@ class EchoService {
     }
   }
 
+  /// Subscribe ke [ConnectivityService] untuk auto-reconnect saat koneksi kembali.
+  ///
+  /// Hanya memanggil [reconnect()] — TIDAK [init()] — agar channel subscription
+  /// yang sudah terdaftar tidak hilang dan listener tidak di-register ulang.
+  ///
+  /// Panggil ini SATU KALI dari MainPage setelah [init()] selesai.
+  static void subscribeToConnectivity() {
+    _connectivitySub?.cancel(); // Hindari double-subscribe
+    _connectivitySub = ConnectivityService.instance.onStatusChange.listen(
+      (status) {
+        if (status == ConnectivityStatus.online && !_isConnected && !_isInitializing) {
+          debugPrint('Echo: Koneksi internet kembali — soft reconnect...');
+          reconnect();
+        }
+      },
+    );
+    debugPrint('Echo: Subscribed to ConnectivityService.');
+  }
+
   static Future<void> disconnect() async {
     debugPrint('Echo: Disconnecting...');
+    // Hentikan subscription connectivity agar tidak trigger reconnect
+    // setelah logout yang disengaja
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     try {
       _echo?.disconnect();
     } catch (_) {}

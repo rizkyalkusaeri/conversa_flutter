@@ -1,5 +1,7 @@
 import 'package:bloc/bloc.dart';
+
 import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
+import '../../../core/utils/error_helper.dart';
 import 'thread_list_state.dart';
 
 class ThreadListCubit extends Cubit<ThreadListState> {
@@ -31,8 +33,7 @@ class ThreadListCubit extends Cubit<ThreadListState> {
         ),
       );
     } catch (e) {
-      emit(ThreadListError(
-          e.toString().replaceFirst('Exception: ', '')));
+      emit(ThreadListError(ErrorHelper.getFriendlyError(e)));
     }
   }
 
@@ -95,5 +96,23 @@ class ThreadListCubit extends Cubit<ThreadListState> {
       }
     }
   }
+
+  /// Delete thread
+  Future<void> deleteThread(String threadUuid) async {
+    final currentState = state;
+    if (currentState is ThreadListLoaded) {
+      try {
+        await _repository.deleteThread(threadUuid);
+        final updatedThreads = currentState.threads
+            .where((t) => t.id != threadUuid)
+            .toList();
+        emit(currentState.copyWith(threads: updatedThreads));
+      } catch (e) {
+        // Rethrow to let UI handle the notification
+        throw Exception(ErrorHelper.getFriendlyError(e));
+      }
+    }
+  }
 }
+
 
