@@ -811,6 +811,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
             ListTile(
               leading: const Icon(Icons.videocam, color: AppColors.primary),
               title: const Text('Ambil Video'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takeVideo();
@@ -822,6 +823,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Media (Foto & Video)'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickMedia();
@@ -833,6 +835,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Dokumen'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickFiles();

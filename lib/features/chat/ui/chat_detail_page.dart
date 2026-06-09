@@ -170,6 +170,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Media (Foto & Video)'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickGalleryMedia(context);
@@ -186,6 +187,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ListTile(
               leading: const Icon(Icons.videocam, color: AppColors.primary),
               title: const Text('Ambil Video'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takeVideo();
@@ -197,6 +199,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 color: AppColors.primary,
               ),
               title: const Text('Dokumen'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
                 final messenger = ScaffoldMessenger.of(context);

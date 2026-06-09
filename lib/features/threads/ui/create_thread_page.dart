@@ -610,6 +610,7 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
             ListTile(
               leading: const Icon(Icons.videocam, color: AppColors.primary),
               title: const Text('Ambil Video'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takeVideo();
@@ -621,6 +622,7 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Media (Foto & Video)'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickMedia();
@@ -632,6 +634,7 @@ class _CreateThreadPageState extends State<CreateThreadPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Dokumen'),
+              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickFiles();
