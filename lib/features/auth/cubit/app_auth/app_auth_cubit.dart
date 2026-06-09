@@ -87,5 +87,13 @@ class AppAuthCubit extends Cubit<AppAuthState> {
   void goToLogin() {
     emit(AppAuthUnauthenticated());
   }
+
+  /// Dipanggil ketika profil pengguna diperbarui (misal di halaman profil)
+  /// agar data user yang di-cache di state global tetap up-to-date.
+  void updateProfile(UserModel userProfile) {
+    if (state is AppAuthAuthenticated) {
+      emit(AppAuthAuthenticated(userProfile));
+    }
+  }
 }
 

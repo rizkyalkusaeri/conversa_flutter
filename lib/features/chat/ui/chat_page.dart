@@ -67,7 +67,7 @@ class _ChatPageState extends State<ChatPage> {
       return null;
     });
 
-    bool canCreateSession = authRole != null && authRole != 'Admin';
+    bool canCreateSession = authRole?.toUpperCase() != 'ADMIN';
 
     return BlocProvider.value(
       value: _cubit,
