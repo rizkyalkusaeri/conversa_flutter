@@ -30,6 +30,16 @@ class SessionActionCubit extends Cubit<SessionActionState> {
     }
   }
 
+  Future<void> cancelClose(String uuid) async {
+    emit(const SessionActionLoading('cancel_close'));
+    try {
+      final session = await _repository.cancelClose(uuid);
+      emit(SessionActionSuccess(session, 'Permintaan penyelesaian sesi berhasil dibatalkan', 'cancel_close'));
+    } catch (e) {
+      emit(SessionActionError(ErrorHelper.getFriendlyError(e), 'cancel_close'));
+    }
+  }
+
   Future<void> completeSession(String uuid, {int? rating, String? feedback}) async {
     emit(const SessionActionLoading('complete_session'));
     try {

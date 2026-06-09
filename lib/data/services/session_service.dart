@@ -194,6 +194,18 @@ class SessionService {
     }
   }
 
+  Future<ApiResponse<SessionModel>> cancelClose(String uuid) async {
+    try {
+      final response = await _dio.post('/sessions/$uuid/cancel-close');
+      return ApiResponse<SessionModel>.fromJson(
+        response.data,
+        (json) => SessionModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
+
   Future<ApiResponse<SessionModel>> completeSession(String uuid, {int? rating, String? feedback}) async {
     try {
       final data = <String, dynamic>{};

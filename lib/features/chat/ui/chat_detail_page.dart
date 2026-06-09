@@ -607,6 +607,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     bool showRequestClose = false;
     bool showComplete = false;
     bool showReject = false;
+    bool showCancelRequest = false;
 
     if (status == 'OPEN') {
       if (!isCredit && isResolver) showRequestClose = true;
@@ -620,6 +621,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       if (isCredit && isOpposing) {
         showComplete = true;
         showReject = true;
+      }
+      // The user who sent the close request can cancel it (mutually exclusive with showComplete/showReject)
+      final iAmCloseRequester = closeRequestedBy != null && closeRequestedBy == _currentUserId;
+      if (iAmCloseRequester) {
+        showCancelRequest = true;
       }
     }
 
@@ -670,6 +676,28 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
       centerTitle: true,
       actions: [
+        if (showCancelRequest)
+          IconButton(
+            icon: const Icon(Icons.cancel_schedule_send, color: Colors.orange),
+            tooltip: 'Batalkan Minta Selesai',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Batalkan Permintaan Selesai',
+                  message: 'Apakah Anda yakin ingin membatalkan permintaan penyelesaian sesi ini? Percakapan akan kembali aktif.',
+                  confirmLabel: 'Ya, Batalkan',
+                  cancelLabel: 'Tidak',
+                  icon: Icons.cancel_schedule_send,
+                  iconColor: Colors.orange,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().cancelClose(session.id);
+              }
+            },
+          ),
         if (showReject)
           IconButton(
             icon: const Icon(Icons.cancel, color: Colors.red),
