@@ -124,4 +124,22 @@ class ChatService {
       throw Exception(ErrorHelper.getFriendlyError(e));
     }
   }
+
+  Future<void> forwardChats(List<int> messageIds, List<String> destinationSessionUuids) async {
+    try {
+      final response = await _dio.post('/sessions/forward', data: {
+        'message_ids': messageIds,
+        'destination_session_uuids': destinationSessionUuids,
+      });
+      final apiResponse = ApiResponse<dynamic>.fromJson(
+        response.data,
+        (json) => json,
+      );
+      if (!apiResponse.success) {
+        throw Exception(apiResponse.message);
+      }
+    } catch (e) {
+      throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
 }
