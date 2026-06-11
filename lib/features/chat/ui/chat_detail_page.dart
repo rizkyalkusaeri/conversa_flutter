@@ -169,16 +169,52 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Future<void> _pickAttachment(BuildContext context) async {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => SafeArea(
-        child: Wrap(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pilih Lampiran',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200, width: 0.5),
+                    ),
+                    child: Text(
+                      'Maksimal 20MB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             ListTile(
               leading: const Icon(
                 Icons.perm_media_outlined,
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Media (Foto & Video)'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickGalleryMedia(context);
@@ -195,7 +231,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ListTile(
               leading: const Icon(Icons.videocam, color: AppColors.primary),
               title: const Text('Ambil Video'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takeVideo();
@@ -207,7 +242,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 color: AppColors.primary,
               ),
               title: const Text('Dokumen'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
                 final messenger = ScaffoldMessenger.of(context);

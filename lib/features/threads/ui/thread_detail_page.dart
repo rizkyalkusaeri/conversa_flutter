@@ -797,9 +797,46 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => SafeArea(
-        child: Wrap(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pilih Lampiran',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200, width: 0.5),
+                    ),
+                    child: Text(
+                      'Maksimal 20MB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AppColors.primary),
               title: const Text('Ambil Foto'),
@@ -811,7 +848,6 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
             ListTile(
               leading: const Icon(Icons.videocam, color: AppColors.primary),
               title: const Text('Ambil Video'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _takeVideo();
@@ -823,7 +859,6 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Galeri Media (Foto & Video)'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickMedia();
@@ -835,7 +870,6 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 color: AppColors.primary,
               ),
               title: const Text('Dokumen'),
-              subtitle: const Text('Maksimal 20MB'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickFiles();
