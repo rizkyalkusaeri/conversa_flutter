@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'widgets/full_screen_image_viewer.dart';
 import 'widgets/rating_dialog.dart';
 import 'widgets/forward_sessions_sheet.dart';
+import 'widgets/multi_attachment_preview_sheet.dart';
 import 'package:flutter/services.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
 import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
@@ -77,13 +78,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Abaikan jika kembali dari FilePicker/picker eksternal (bukan dari background app)
+      // Abaikan jika kembali dari FilePicker/ImagePicker/kamera (bukan dari background app).
+      // Flag di-reset di sini — bukan setelah await picker — agar tidak ada race condition.
       if (_isExternalPickerOpen) {
         _isExternalPickerOpen = false;
         return;
       }
       debugPrint('ChatDetailPage resumed — reloading chats & session...');
-      context.read<ChatDetailCubit>().loadInitialChats();
+      // Hanya reload session status; pesan baru sudah ditangani realtime via Echo.
+      // loadInitialChats() tidak dipanggil di sini agar list tidak kedip tanpa alasan.
       context.read<ChatDetailCubit>().reloadSession();
     }
   }
@@ -245,35 +248,52 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
                 final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
                 Navigator.pop(ctx);
-                _isExternalPickerOpen =
-                    true; // Set flag sebelum FilePicker dibuka
+                _isExternalPickerOpen = true;
                 FilePickerResult? result = await FilePicker.pickFiles(
-                  allowMultiple: false,
+                  allowMultiple: true,
                 );
-                _isExternalPickerOpen = false; // Reset flag setelah kembali
-                if (result != null) {
-                  for (var file in result.files) {
-                    if (file.path != null) {
-                      // Validasi ukuran file sebelum upload
-                      final fileSize = await File(file.path!).length();
-                      if (fileSize > 20 * 1024 * 1024) {
-                        final sizeMB = (fileSize / (1024 * 1024))
-                            .toStringAsFixed(1);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'File terlalu besar ($sizeMB MB). Maksimal 20MB.',
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                        return;
-                      }
-                      cubit.sendMessage("", XFile(file.path!, name: file.name));
-                    }
-                  }
+                // Flag akan di-reset di didChangeAppLifecycleState saat resumed
+                if (result == null || result.files.isEmpty) {
+                  _isExternalPickerOpen = false; // Tidak ada lifecycle jika picker dibatalkan
+                  return;
+                }
+
+                // Konversi ke XFile & batasi ke 5
+                List<XFile> picked = result.files
+                    .where((f) => f.path != null)
+                    .map((f) => XFile(f.path!, name: f.name))
+                    .take(5)
+                    .toList();
+
+                if (result.files.length > 5) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Hanya 5 file pertama yang dipilih (batas maksimal).',
+                      ),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+
+                if (!mounted) return;
+                // Tampilkan preview sheet
+                final List<XFile>? confirmed =
+                    await showModalBottomSheet<List<XFile>>(
+                  context: navigator.context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => MultiAttachmentPreviewSheet(
+                    initialFiles: picked,
+                    sourceType: 'document',
+                  ),
+                );
+
+                if (confirmed != null && confirmed.isNotEmpty) {
+                  cubit.sendMultipleAttachments(confirmed);
                 }
               },
             ),
@@ -365,47 +385,48 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Future<void> _pickGalleryMedia(BuildContext context) async {
     final cubit = context.read<ChatDetailCubit>();
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final picker = ImagePicker();
-    // pickMedia allows both images and videos
-    final XFile? media = await picker.pickMedia();
 
-    if (media != null) {
-      if (!mounted) return;
+    // Pilih multiple media (foto & video) sekaligus
+    _isExternalPickerOpen = true;
+    final List<XFile> mediaList = await picker.pickMultipleMedia();
+    // Flag akan di-reset di didChangeAppLifecycleState saat resumed
 
-      // Validasi ukuran
-      final size = await File(media.path).length();
-      if (size > 20 * 1024 * 1024) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('File terlalu besar. Maksimal 20MB.'),
-            backgroundColor: Colors.red,
+    if (!mounted) return;
+    if (mediaList.isEmpty) {
+      _isExternalPickerOpen = false; // Tidak ada lifecycle jika picker dibatalkan
+      return;
+    }
+
+    // Batasi ke 5 file
+    List<XFile> picked = mediaList.take(5).toList();
+    if (mediaList.length > 5) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Hanya 5 media pertama yang dipilih (batas maksimal).',
           ),
-        );
-        return;
-      }
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
 
-      // Jika gambar, tunjukkan preview dulu
-      final ext = media.path.toLowerCase().split('.').last;
-      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+    // Tampilkan preview sheet multi-file
+    final List<XFile>? confirmed = await showModalBottomSheet<List<XFile>>(
+      context: navigator.context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MultiAttachmentPreviewSheet(
+        initialFiles: picked,
+        sourceType: 'gallery',
+      ),
+    );
 
-      if (isImage) {
-        final result = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => ImagePreviewDialog(
-            imagePath: media.path,
-            onSend: () => Navigator.pop(ctx, true),
-            onRetake: () => Navigator.pop(ctx, false),
-          ),
-        );
-        if (result == true) {
-          cubit.sendMessage("", media);
-        } else if (result == false) {
-          _pickGalleryMedia(context);
-        }
-      } else {
-        // Video langsung kirim (atau bisa tambah video preview jika mau, tapi kirim langsung cukup)
-        cubit.sendMessage("", media);
-      }
+    if (!mounted) return;
+    if (confirmed != null && confirmed.isNotEmpty) {
+      cubit.sendMultipleAttachments(confirmed);
     }
   }
 
@@ -600,6 +621,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   // Bubble sementara yang muncul di chat list saat file sedang diunggah
   Widget _buildUploadingBubble() {
+    // Ambil progress dari state untuk tampilkan "Mengunggah 2/5..."
+    String uploadLabel = 'Mengunggah...';
+    final currentState = context.read<ChatDetailCubit>().state;
+    if (currentState is ChatDetailLoaded && currentState.uploadingCount > 1) {
+      final current = currentState.uploadedCount + 1;
+      final total = currentState.uploadingCount;
+      uploadLabel = 'Mengunggah $current/$total...';
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Row(
@@ -617,10 +647,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 bottomRight: Radius.circular(4),
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
@@ -628,10 +658,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
-                  'Mengunggah...',
-                  style: TextStyle(color: Colors.white, fontSize: 13),
+                  uploadLabel,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ],
             ),

@@ -28,6 +28,9 @@ class ChatDetailLoaded extends ChatDetailState {
   final String? submitError;
   final int submitErrorTimestamp;
   final String searchQuery;
+  // Multi-file upload progress: jumlah total file dalam antrian & yang sudah terkirim
+  final int uploadingCount;
+  final int uploadedCount;
 
   const ChatDetailLoaded({
     required this.session,
@@ -38,6 +41,8 @@ class ChatDetailLoaded extends ChatDetailState {
     this.submitError,
     this.submitErrorTimestamp = 0,
     this.searchQuery = '',
+    this.uploadingCount = 0,
+    this.uploadedCount = 0,
   });
 
   ChatDetailLoaded copyWith({
@@ -49,6 +54,8 @@ class ChatDetailLoaded extends ChatDetailState {
     String? submitError,
     int? submitErrorTimestamp,
     String? searchQuery,
+    int? uploadingCount,
+    int? uploadedCount,
   }) {
     return ChatDetailLoaded(
       session: session ?? this.session,
@@ -59,6 +66,8 @@ class ChatDetailLoaded extends ChatDetailState {
       submitError: submitError,
       submitErrorTimestamp: submitErrorTimestamp ?? this.submitErrorTimestamp,
       searchQuery: searchQuery ?? this.searchQuery,
+      uploadingCount: uploadingCount ?? this.uploadingCount,
+      uploadedCount: uploadedCount ?? this.uploadedCount,
     );
   }
 
@@ -72,6 +81,8 @@ class ChatDetailLoaded extends ChatDetailState {
         submitError,
         submitErrorTimestamp,
         searchQuery,
+        uploadingCount,
+        uploadedCount,
       ];
 }
 
