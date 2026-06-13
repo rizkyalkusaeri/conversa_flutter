@@ -13,6 +13,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/full_screen_image_viewer.dart';
 import 'widgets/rating_dialog.dart';
+import 'widgets/forward_sessions_sheet.dart';
+import 'widgets/multi_attachment_preview_sheet.dart';
+import 'package:flutter/services.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
+import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/cubit/app_auth/app_auth_cubit.dart';
 import '../../auth/cubit/app_auth/app_auth_state.dart';
@@ -53,6 +58,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // Subscription untuk session updated dari MainPage via EventBus
   StreamSubscription<Map<String, dynamic>>? _sessionUpdatedSub;
 
+  bool _isSelecting = false;
+  final Set<int> _selectedMessageIds = {};
+  bool _isForwarding = false;
+
   @override
   void initState() {
     super.initState();
@@ -69,13 +78,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Abaikan jika kembali dari FilePicker/picker eksternal (bukan dari background app)
+      // Abaikan jika kembali dari FilePicker/ImagePicker/kamera (bukan dari background app).
+      // Flag di-reset di sini — bukan setelah await picker — agar tidak ada race condition.
       if (_isExternalPickerOpen) {
         _isExternalPickerOpen = false;
         return;
       }
       debugPrint('ChatDetailPage resumed — reloading chats & session...');
-      context.read<ChatDetailCubit>().loadInitialChats();
+      // Hanya reload session status; pesan baru sudah ditangani realtime via Echo.
+      // loadInitialChats() tidak dipanggil di sini agar list tidak kedip tanpa alasan.
       context.read<ChatDetailCubit>().reloadSession();
     }
   }
@@ -161,9 +172,46 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Future<void> _pickAttachment(BuildContext context) async {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => SafeArea(
-        child: Wrap(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pilih Lampiran',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200, width: 0.5),
+                    ),
+                    child: Text(
+                      'Maksimal 20MB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             ListTile(
               leading: const Icon(
                 Icons.perm_media_outlined,
@@ -200,35 +248,52 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               onTap: () async {
                 final cubit = context.read<ChatDetailCubit>();
                 final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
                 Navigator.pop(ctx);
-                _isExternalPickerOpen =
-                    true; // Set flag sebelum FilePicker dibuka
+                _isExternalPickerOpen = true;
                 FilePickerResult? result = await FilePicker.pickFiles(
-                  allowMultiple: false,
+                  allowMultiple: true,
                 );
-                _isExternalPickerOpen = false; // Reset flag setelah kembali
-                if (result != null) {
-                  for (var file in result.files) {
-                    if (file.path != null) {
-                      // Validasi ukuran file sebelum upload
-                      final fileSize = await File(file.path!).length();
-                      if (fileSize > 20 * 1024 * 1024) {
-                        final sizeMB = (fileSize / (1024 * 1024))
-                            .toStringAsFixed(1);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'File terlalu besar ($sizeMB MB). Maksimal 20MB.',
-                            ),
-                            backgroundColor: Colors.red,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                        return;
-                      }
-                      cubit.sendMessage("", XFile(file.path!, name: file.name));
-                    }
-                  }
+                // Flag akan di-reset di didChangeAppLifecycleState saat resumed
+                if (result == null || result.files.isEmpty) {
+                  _isExternalPickerOpen = false; // Tidak ada lifecycle jika picker dibatalkan
+                  return;
+                }
+
+                // Konversi ke XFile & batasi ke 5
+                List<XFile> picked = result.files
+                    .where((f) => f.path != null)
+                    .map((f) => XFile(f.path!, name: f.name))
+                    .take(5)
+                    .toList();
+
+                if (result.files.length > 5) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Hanya 5 file pertama yang dipilih (batas maksimal).',
+                      ),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+
+                if (!mounted) return;
+                // Tampilkan preview sheet
+                final List<XFile>? confirmed =
+                    await showModalBottomSheet<List<XFile>>(
+                  context: navigator.context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => MultiAttachmentPreviewSheet(
+                    initialFiles: picked,
+                    sourceType: 'document',
+                  ),
+                );
+
+                if (confirmed != null && confirmed.isNotEmpty) {
+                  cubit.sendMultipleAttachments(confirmed);
                 }
               },
             ),
@@ -320,47 +385,48 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Future<void> _pickGalleryMedia(BuildContext context) async {
     final cubit = context.read<ChatDetailCubit>();
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final picker = ImagePicker();
-    // pickMedia allows both images and videos
-    final XFile? media = await picker.pickMedia();
 
-    if (media != null) {
-      if (!mounted) return;
+    // Pilih multiple media (foto & video) sekaligus
+    _isExternalPickerOpen = true;
+    final List<XFile> mediaList = await picker.pickMultipleMedia();
+    // Flag akan di-reset di didChangeAppLifecycleState saat resumed
 
-      // Validasi ukuran
-      final size = await File(media.path).length();
-      if (size > 20 * 1024 * 1024) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('File terlalu besar. Maksimal 20MB.'),
-            backgroundColor: Colors.red,
+    if (!mounted) return;
+    if (mediaList.isEmpty) {
+      _isExternalPickerOpen = false; // Tidak ada lifecycle jika picker dibatalkan
+      return;
+    }
+
+    // Batasi ke 5 file
+    List<XFile> picked = mediaList.take(5).toList();
+    if (mediaList.length > 5) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Hanya 5 media pertama yang dipilih (batas maksimal).',
           ),
-        );
-        return;
-      }
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
 
-      // Jika gambar, tunjukkan preview dulu
-      final ext = media.path.toLowerCase().split('.').last;
-      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+    // Tampilkan preview sheet multi-file
+    final List<XFile>? confirmed = await showModalBottomSheet<List<XFile>>(
+      context: navigator.context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MultiAttachmentPreviewSheet(
+        initialFiles: picked,
+        sourceType: 'gallery',
+      ),
+    );
 
-      if (isImage) {
-        final result = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => ImagePreviewDialog(
-            imagePath: media.path,
-            onSend: () => Navigator.pop(ctx, true),
-            onRetake: () => Navigator.pop(ctx, false),
-          ),
-        );
-        if (result == true) {
-          cubit.sendMessage("", media);
-        } else if (result == false) {
-          _pickGalleryMedia(context);
-        }
-      } else {
-        // Video langsung kirim (atau bisa tambah video preview jika mau, tapi kirim langsung cukup)
-        cubit.sendMessage("", media);
-      }
+    if (!mounted) return;
+    if (confirmed != null && confirmed.isNotEmpty) {
+      cubit.sendMultipleAttachments(confirmed);
     }
   }
 
@@ -388,142 +454,165 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: _buildAppBar(),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // const _EncryptionNotice(),
-            Expanded(
-              child: BlocConsumer<ChatDetailCubit, ChatDetailState>(
-                listener: (context, state) {
-                  if (state is ChatDetailLoaded && state.submitError != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.submitError!),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
-                builder: (context, state) {
-                  if (state is ChatDetailLoading && state.isFirstLoad) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            Column(
+              children: [
+                // const _EncryptionNotice(),
+                Expanded(
+                  child: BlocConsumer<ChatDetailCubit, ChatDetailState>(
+                    listener: (context, state) {
+                      if (state is ChatDetailLoaded && state.submitError != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(state.submitError!),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    builder: (context, state) {
+                      if (state is ChatDetailLoading && state.isFirstLoad) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                  if (state is ChatDetailError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.wifi_off_rounded,
-                              size: 56,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              state.message,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            OutlinedButton.icon(
-                              onPressed: () => context
-                                  .read<ChatDetailCubit>()
-                                  .loadInitialChats(),
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text('Coba Lagi'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                side: BorderSide(color: AppColors.primary),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                      if (state is ChatDetailError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.wifi_off_rounded,
+                                  size: 56,
+                                  color: Colors.grey.shade400,
                                 ),
-                              ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  state.message,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                OutlinedButton.icon(
+                                  onPressed: () => context
+                                      .read<ChatDetailCubit>()
+                                      .loadInitialChats(),
+                                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                                  label: const Text('Coba Lagi'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: BorderSide(color: AppColors.primary),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
+                          ),
+                        );
+                      }
 
-                  if (state is ChatDetailLoaded) {
-                    final chats = state.chats;
+                      if (state is ChatDetailLoaded) {
+                        final chats = state.chats;
 
-                    if (chats.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'Belum ada pesan. Mulai percakapan sekarang.',
-                        ),
-                      );
-                    }
-
-                    return BlocListener<SessionActionCubit, SessionActionState>(
-                      listener: (context, actionState) {
-                        if (actionState is SessionActionSuccess) {
-                          _handleActionSuccess(actionState.session);
-                        } else if (actionState is SessionActionError) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(actionState.message),
-                              backgroundColor: Colors.red,
+                        if (chats.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'Belum ada pesan. Mulai percakapan sekarang.',
                             ),
                           );
                         }
-                      },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        // +1 for uploading bubble (only when uploading a file), +1 for load-more spinner
-                        itemCount:
-                            chats.length +
-                            (state.isUploadingAttachment ? 1 : 0) +
-                            (state.hasReachedMax ? 0 : 1),
-                        itemBuilder: (context, index) {
-                          // Uploading bubble — at top (index 0 since list is reversed)
-                          if (state.isUploadingAttachment && index == 0) {
-                            return _buildUploadingBubble();
-                          }
 
-                          // Offset index when uploading bubble is shown
-                          final adjustedIndex = state.isUploadingAttachment
-                              ? index - 1
-                              : index;
-
-                          // Load-more spinner at bottom
-                          if (adjustedIndex == chats.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                        return BlocListener<SessionActionCubit, SessionActionState>(
+                          listener: (context, actionState) {
+                            if (actionState is SessionActionSuccess) {
+                              _handleActionSuccess(actionState.session);
+                            } else if (actionState is SessionActionError) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(actionState.message),
+                                  backgroundColor: Colors.red,
                                 ),
-                              ),
-                            );
-                          }
+                              );
+                            }
+                          },
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            // +1 for uploading bubble (only when uploading a file), +1 for load-more spinner
+                            itemCount:
+                                chats.length +
+                                (state.isUploadingAttachment ? 1 : 0) +
+                                (state.hasReachedMax ? 0 : 1),
+                            itemBuilder: (context, index) {
+                              // Uploading bubble — at top (index 0 since list is reversed)
+                              if (state.isUploadingAttachment && index == 0) {
+                                return _buildUploadingBubble();
+                              }
 
-                          final chat = chats[adjustedIndex];
-                          final isMe = chat.senderId == _currentUserId;
+                              // Offset index when uploading bubble is shown
+                              final adjustedIndex = state.isUploadingAttachment
+                                  ? index - 1
+                                  : index;
 
-                          return _buildMessageBubble(chat, isMe);
-                        },
-                      ),
-                    );
-                  }
+                              // Load-more spinner at bottom
+                              if (adjustedIndex == chats.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              }
 
-                  return const SizedBox.shrink();
-                },
-              ),
+                              final chat = chats[adjustedIndex];
+                              final isMe = chat.senderId == _currentUserId;
+
+                              return _buildMessageBubble(chat, isMe);
+                            },
+                          ),
+                        );
+                      }
+
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+                if (_isSelecting) const SizedBox.shrink() else _buildMessageComposer(),
+              ],
             ),
-            _buildMessageComposer(),
+            if (_isForwarding)
+              Container(
+                color: Colors.black.withValues(alpha: 0.3),
+                child: const Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Meneruskan pesan...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -532,6 +621,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   // Bubble sementara yang muncul di chat list saat file sedang diunggah
   Widget _buildUploadingBubble() {
+    // Ambil progress dari state untuk tampilkan "Mengunggah 2/5..."
+    String uploadLabel = 'Mengunggah...';
+    final currentState = context.read<ChatDetailCubit>().state;
+    if (currentState is ChatDetailLoaded && currentState.uploadingCount > 1) {
+      final current = currentState.uploadedCount + 1;
+      final total = currentState.uploadingCount;
+      uploadLabel = 'Mengunggah $current/$total...';
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Row(
@@ -549,10 +647,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 bottomRight: Radius.circular(4),
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
@@ -560,10 +658,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
-                  'Mengunggah...',
-                  style: TextStyle(color: Colors.white, fontSize: 13),
+                  uploadLabel,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ],
             ),
@@ -604,6 +702,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     bool showRequestClose = false;
     bool showComplete = false;
     bool showReject = false;
+    bool showCancelRequest = false;
 
     if (status == 'OPEN') {
       if (!isCredit && isResolver) showRequestClose = true;
@@ -618,6 +717,42 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         showComplete = true;
         showReject = true;
       }
+      // The user who sent the close request can cancel it (mutually exclusive with showComplete/showReject)
+      final iAmCloseRequester = closeRequestedBy != null && closeRequestedBy == _currentUserId;
+      if (iAmCloseRequester) {
+        showCancelRequest = true;
+      }
+    }
+
+    if (_isSelecting) {
+      return AppBar(
+        backgroundColor: AppColors.primary,
+        elevation: 2,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () {
+            setState(() {
+              _isSelecting = false;
+              _selectedMessageIds.clear();
+            });
+          },
+        ),
+        title: Text(
+          '${_selectedMessageIds.length} terpilih',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.forward_rounded, color: Colors.white),
+            tooltip: 'Teruskan',
+            onPressed: _selectedMessageIds.isEmpty ? null : _showForwardBottomSheet,
+          ),
+        ],
+      );
     }
 
     return AppBar(
@@ -667,6 +802,28 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
       centerTitle: true,
       actions: [
+        if (showCancelRequest)
+          IconButton(
+            icon: const Icon(Icons.cancel_schedule_send, color: Colors.orange),
+            tooltip: 'Batalkan Minta Selesai',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const ConfirmationDialog(
+                  title: 'Batalkan Permintaan Selesai',
+                  message: 'Apakah Anda yakin ingin membatalkan permintaan penyelesaian sesi ini? Percakapan akan kembali aktif.',
+                  confirmLabel: 'Ya, Batalkan',
+                  cancelLabel: 'Tidak',
+                  icon: Icons.cancel_schedule_send,
+                  iconColor: Colors.orange,
+                ),
+              );
+              if (!mounted) return;
+              if (confirm == true) {
+                context.read<SessionActionCubit>().cancelClose(session.id);
+              }
+            },
+          ),
         if (showReject)
           IconButton(
             icon: const Icon(Icons.cancel, color: Colors.red),
@@ -883,47 +1040,175 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     );
   }
 
+  Future<void> _showForwardBottomSheet() async {
+    final List<String>? selectedSessionUuids = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ForwardSessionsSheet(
+        currentSessionUuid: widget.session.id,
+        currentUserId: _currentUserId,
+      ),
+    );
+
+    if (selectedSessionUuids == null || selectedSessionUuids.isEmpty) return;
+
+    setState(() => _isForwarding = true);
+
+    try {
+      final repository = ChatRepository();
+      await repository.forwardChats(
+        _selectedMessageIds.toList(),
+        selectedSessionUuids,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesan berhasil diteruskan!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      final singleTargetUuid = selectedSessionUuids.length == 1 ? selectedSessionUuids.first : null;
+
+      setState(() {
+        _isSelecting = false;
+        _selectedMessageIds.clear();
+        _isForwarding = false;
+      });
+
+      if (singleTargetUuid != null) {
+        // Fetch target session details to open it
+        final session = await SessionService().getSessionByUuid(singleTargetUuid);
+        if (!mounted) return;
+
+        // Replace current detail page route with target page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) => ChatDetailCubit(initialSession: session)..loadInitialChats(),
+                ),
+                BlocProvider(create: (_) => SessionActionCubit()),
+              ],
+              child: ChatDetailPage(session: session),
+            ),
+          ),
+        );
+      } else {
+        // Reload messages of current chat
+        context.read<ChatDetailCubit>().loadInitialChats();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isForwarding = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal meneruskan pesan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildMessageBubble(ChatMessageModel chat, bool isMe) {
     String timeStr = "";
     if (chat.createdAt != null) {
       timeStr = DateFormat('h:mm a').format(chat.createdAt!);
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              left: isMe ? 0 : 4,
-              right: isMe ? 4 : 0,
-              bottom: 4,
-            ),
-            child: Text(
-              isMe ? "Me" : (chat.senderName ?? 'User'),
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+    final isSelected = _selectedMessageIds.contains(chat.id);
+    final isSystem = chat.messageType == 'SYSTEM';
+
+    return InkWell(
+      onTap: _isSelecting && !isSystem
+          ? () {
+              setState(() {
+                if (_selectedMessageIds.contains(chat.id)) {
+                  _selectedMessageIds.remove(chat.id);
+                  if (_selectedMessageIds.isEmpty) {
+                    _isSelecting = false;
+                  }
+                } else {
+                  _selectedMessageIds.add(chat.id);
+                }
+              });
+            }
+          : null,
+      onLongPress: !isSystem
+          ? () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _isSelecting = true;
+                _selectedMessageIds.add(chat.id);
+              });
+            }
+          : null,
+      child: Container(
+        color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                left: isMe ? 0 : 4,
+                right: isMe ? 4 : 0,
+                bottom: 4,
+              ),
+              child: Text(
+                isMe ? "Me" : (chat.senderName ?? 'User'),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          Row(
-            mainAxisAlignment: isMe
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+            Row(
+              mainAxisAlignment: isMe
+                  ? MainAxisAlignment.end
+                  : MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_isSelecting && !isSystem) ...[
+                  Checkbox(
+                    value: isSelected,
+                    activeColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _selectedMessageIds.add(chat.id);
+                        } else {
+                          _selectedMessageIds.remove(chat.id);
+                          if (_selectedMessageIds.isEmpty) {
+                            _isSelecting = false;
+                          }
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
               if (!isMe) ...[
                 GestureDetector(
-                  onTap: () {
-                    if (chat.senderId != null) {
-                      UserProfilePopup.show(context, chat.senderId!);
-                    }
-                  },
+                  onTap: _isSelecting
+                      ? null
+                      : () {
+                          if (chat.senderId != null) {
+                            UserProfilePopup.show(context, chat.senderId!);
+                          }
+                        },
                   child: CircleAvatar(
                     radius: 14,
                     backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
@@ -970,27 +1255,29 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     children: [
                       if (chat.attachmentUrl != null) ...[
                         GestureDetector(
-                          onTap: () {
-                            if (chat.isImage) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FullScreenImageViewer(
-                                    imageUrl:
-                                        ApiConfig.imageUrl +
-                                        chat.attachmentUrl!,
-                                    heroTag: 'chat_image_${chat.id}',
-                                  ),
-                                ),
-                              );
-                            } else if (chat.isVideo) {
-                              // Video Tap action (bisa diisi jika ingin fullscreen player khusus)
-                            } else {
-                              _openAttachment(
-                                ApiConfig.imageUrl + chat.attachmentUrl!,
-                              );
-                            }
-                          },
+                          onTap: _isSelecting
+                              ? null
+                              : () {
+                                  if (chat.isImage) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FullScreenImageViewer(
+                                          imageUrl:
+                                              ApiConfig.imageUrl +
+                                              chat.attachmentUrl!,
+                                          heroTag: 'chat_image_${chat.id}',
+                                        ),
+                                      ),
+                                    );
+                                  } else if (chat.isVideo) {
+                                    // Video Tap action (bisa diisi jika ingin fullscreen player khusus)
+                                  } else {
+                                    _openAttachment(
+                                      ApiConfig.imageUrl + chat.attachmentUrl!,
+                                    );
+                                  }
+                                },
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: chat.isImage
@@ -1041,10 +1328,13 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                     ),
                                   )
                                 : chat.isVideo
-                                ? VideoAttachmentWidget(
-                                    videoUrl:
-                                        ApiConfig.imageUrl +
-                                        chat.attachmentUrl!,
+                                ? IgnorePointer(
+                                    ignoring: _isSelecting,
+                                    child: VideoAttachmentWidget(
+                                      videoUrl:
+                                          ApiConfig.imageUrl +
+                                          chat.attachmentUrl!,
+                                    ),
                                   )
                                 : Container(
                                     padding: const EdgeInsets.all(12),
@@ -1092,29 +1382,30 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               if (isMe) const SizedBox(width: 8),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  timeStr,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    chat.isRead ? Icons.done_all : Icons.check,
-                    size: 14,
-                    color: chat.isRead
-                        ? AppColors.primary
-                        : Colors.grey.shade400,
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    timeStr,
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                   ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      chat.isRead ? Icons.done_all : Icons.check,
+                      size: 14,
+                      color: chat.isRead
+                          ? AppColors.primary
+                          : Colors.grey.shade400,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

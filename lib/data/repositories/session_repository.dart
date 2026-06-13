@@ -43,6 +43,12 @@ class SessionRepository {
     throw Exception(response.message);
   }
 
+  Future<SessionModel> cancelClose(String uuid) async {
+    final response = await _service.cancelClose(uuid);
+    if (response.success && response.data != null) return response.data!;
+    throw Exception(response.message);
+  }
+
   Future<SessionModel> completeSession(String uuid, {int? rating, String? feedback}) async {
     final response = await _service.completeSession(uuid, rating: rating, feedback: feedback);
     if (response.success && response.data != null) return response.data!;

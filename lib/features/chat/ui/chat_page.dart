@@ -67,7 +67,7 @@ class _ChatPageState extends State<ChatPage> {
       return null;
     });
 
-    bool canCreateSession = authRole != null && authRole != 'Admin';
+    bool canCreateSession = authRole?.toUpperCase() != 'ADMIN';
 
     return BlocProvider.value(
       value: _cubit,
@@ -98,6 +98,7 @@ class _ChatPageState extends State<ChatPage> {
                 heroTag: 'chat_fab',
                 onPressed: () => _showCreateSessionModal(context),
                 backgroundColor: AppColors.primary,
+                shape: const CircleBorder(),
                 child: const Icon(Icons.add_comment, color: Colors.white),
               )
             : null,
@@ -287,7 +288,9 @@ class _SessionListViewState extends State<SessionListView> {
                       const SizedBox(height: 20),
                       OutlinedButton.icon(
                         onPressed: () {
-                          context.read<SessionListCubit>().loadInitial(searchQuery: '');
+                          context.read<SessionListCubit>().loadInitial(
+                            searchQuery: '',
+                          );
                         },
                         icon: const Icon(Icons.refresh_rounded, size: 18),
                         label: const Text('Coba Lagi'),
@@ -722,7 +725,10 @@ class _SessionListViewState extends State<SessionListView> {
                 if (session.noAppl != null && session.noAppl!.isNotEmpty)
                   _buildDetailRow('No. Appl', session.noAppl!),
                 _buildDetailRow('Pemohon', session.requesterName ?? '-'),
-                _buildDetailRow('Penyelesai', session.resolverName ?? 'Menunggu'),
+                _buildDetailRow(
+                  'Penyelesai',
+                  session.resolverName ?? 'Menunggu',
+                ),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
                 if (session.createdAt != null)
                   _buildDetailRow(

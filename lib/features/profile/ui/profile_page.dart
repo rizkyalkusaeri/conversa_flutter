@@ -32,7 +32,12 @@ class ProfilePage extends StatelessWidget {
           elevation: 0,
           actions: [],
         ),
-        body: BlocBuilder<ProfileCubit, ProfileState>(
+        body: BlocConsumer<ProfileCubit, ProfileState>(
+          listener: (context, state) {
+            if (state is ProfileLoaded) {
+              context.read<AppAuthCubit>().updateProfile(state.user);
+            }
+          },
           builder: (context, state) {
             UserModel? user;
             bool isLoading = state is ProfileLoading || state is ProfileInitial;

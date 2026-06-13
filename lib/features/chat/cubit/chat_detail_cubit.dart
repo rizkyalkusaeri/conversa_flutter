@@ -77,22 +77,104 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         final newMessage = await _repository.sendChat(
             initialSession.id, text, attachment);
 
-        // Sisipkan pesan baru ke paling atas daftar (index 0 karena riwayat reverse scroll)
-        final updatedChats = List.of(currentState.chats)..insert(0, newMessage);
+        if (state is! ChatDetailLoaded) return;
+        // Baca state TERBARU setelah await (bukan snapshot lama) agar tidak
+        // menimpa pesan yang mungkin sudah diinsert oleh receiveMessage() via Echo.
+        final latestState = state as ChatDetailLoaded;
 
-        emit(currentState.copyWith(
+        // Dedup: cegah duplikat jika Echo sudah lebih dulu memasukkan pesan ini
+        final alreadyExists = latestState.chats.any((c) => c.id == newMessage.id);
+        final updatedChats = alreadyExists
+            ? latestState.chats
+            : (List.of(latestState.chats)..insert(0, newMessage));
+
+        emit(latestState.copyWith(
           isSubmitting: false,
           isUploadingAttachment: false,
           chats: updatedChats,
         ));
       } catch (e) {
-        emit(currentState.copyWith(
+        if (state is! ChatDetailLoaded) return;
+        final latestState = state as ChatDetailLoaded;
+        emit(latestState.copyWith(
           isSubmitting: false,
           isUploadingAttachment: false,
           submitError: _friendlyError(e),
           submitErrorTimestamp: DateTime.now().millisecondsSinceEpoch,
         ));
       }
+    }
+  }
+
+  /// Kirim multiple attachment secara sequential dengan progress state.
+  /// Maksimal 5 file per pemanggilan.
+  Future<void> sendMultipleAttachments(List<XFile> files) async {
+    if (files.isEmpty) return;
+    if (state is! ChatDetailLoaded) return;
+
+    final totalFiles = files.length;
+    final failedFiles = <String>[];
+
+    // Emit state awal: tampilkan progress bar di uploading bubble
+    final startState = state as ChatDetailLoaded;
+    emit(startState.copyWith(
+      isUploadingAttachment: true,
+      uploadingCount: totalFiles,
+      uploadedCount: 0,
+      submitError: null,
+    ));
+
+    for (int i = 0; i < totalFiles; i++) {
+      if (state is! ChatDetailLoaded) break;
+      final currentState = state as ChatDetailLoaded;
+
+      // Update progress sebelum kirim file ke-i
+      emit(currentState.copyWith(
+        uploadedCount: i,
+        isUploadingAttachment: true,
+      ));
+
+      try {
+        final newMessage = await _repository.sendChat(
+          initialSession.id,
+          "",
+          files[i],
+        );
+
+        if (state is! ChatDetailLoaded) break;
+        // Baca state TERBARU setelah await — Echo mungkin sudah memasukkan pesan ini
+        final afterSendState = state as ChatDetailLoaded;
+
+        // Dedup: jika receiveMessage() via Echo sudah insert pesan ini, skip insert
+        final alreadyExists = afterSendState.chats.any((c) => c.id == newMessage.id);
+        final updatedChats = alreadyExists
+            ? afterSendState.chats
+            : (List.of(afterSendState.chats)..insert(0, newMessage));
+
+        emit(afterSendState.copyWith(
+          chats: updatedChats,
+          uploadedCount: i + 1,
+        ));
+      } catch (e) {
+        failedFiles.add(files[i].name);
+        debugPrint('sendMultipleAttachments: error pada file ${files[i].name}: $e');
+      }
+    }
+
+    // Selesai — reset progress state
+    if (state is ChatDetailLoaded) {
+      final doneState = state as ChatDetailLoaded;
+      emit(doneState.copyWith(
+        isUploadingAttachment: false,
+        uploadingCount: 0,
+        uploadedCount: 0,
+        submitError: failedFiles.isNotEmpty
+            ? 'Gagal mengirim ${failedFiles.length} file: ${failedFiles.join(", ")}'
+            : null,
+        submitErrorTimestamp: failedFiles.isNotEmpty
+            ? DateTime.now().millisecondsSinceEpoch
+            : doneState.submitErrorTimestamp,
+      ));
     }
   }
 
