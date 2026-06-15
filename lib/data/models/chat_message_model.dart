@@ -29,7 +29,7 @@ class ChatMessageModel {
       systemMessageType: json['system_message_type'],
       attachmentUrl: json['attachment_url'],
       isRead: json['is_read'] == true || json['is_read'] == 1,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']).toLocal() : null,
       senderId: json['sender']?['id'] ?? json['sender_id'],
       senderName: json['sender']?['name'] ?? json['sender_name'],
     );
