@@ -110,7 +110,7 @@ class ThreadModel {
       content: json['content'] ?? '',
       status: json['status'],
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'])
+          ? DateTime.tryParse(json['created_at'])?.toLocal()
           : null,
       author: ThreadAuthor.fromJson(json['author'] ?? {}),
       likesCount: stats['likes_count'] ?? 0,

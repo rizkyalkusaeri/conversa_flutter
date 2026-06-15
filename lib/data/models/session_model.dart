@@ -16,7 +16,7 @@ class LatestChatModel {
       id: json['id'] ?? 0,
       message: json['message'],
       senderName: json['sender']?['name'],
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'])?.toLocal() : null,
     );
   }
 }
@@ -90,11 +90,11 @@ class SessionModel {
       requesterId: json['requester']?['id'],
       resolverName: json['resolver']?['name'],
       resolverId: json['resolver']?['id'],
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
-      closedAt: json['closed_at'] != null ? DateTime.tryParse(json['closed_at']) : null,
-      closeRequestedAt: json['close_requested_at'] != null ? DateTime.tryParse(json['close_requested_at']) : null,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'])?.toLocal() : null,
+      closedAt: json['closed_at'] != null ? DateTime.tryParse(json['closed_at'])?.toLocal() : null,
+      closeRequestedAt: json['close_requested_at'] != null ? DateTime.tryParse(json['close_requested_at'])?.toLocal() : null,
       closeRequestedBy: json['close_requested_by'],
-      openRequestedAt: json['open_requested_at'] != null ? DateTime.tryParse(json['open_requested_at']) : null,
+      openRequestedAt: json['open_requested_at'] != null ? DateTime.tryParse(json['open_requested_at'])?.toLocal() : null,
       openRequestedBy: json['open_requested_by'],
       isHaveUniqueId: json['is_have_unique_id'] == true || json['is_have_unique_id'] == 1,
       isFeedbackRequired: json['is_feedback_required'] == true || json['is_feedback_required'] == 1,

@@ -12,6 +12,7 @@ import 'package:fifgroup_android_ticketing/data/models/chat_message_model.dart';
 import '../cubit/global_chat_cubit.dart';
 import '../cubit/global_chat_state.dart';
 import '../../chat/ui/widgets/full_screen_image_viewer.dart';
+import '../../chat/ui/widgets/linkified_text.dart';
 import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
 
 class GlobalChatHistoryPage extends StatefulWidget {
@@ -271,9 +272,15 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
                           const SizedBox(height: 8),
                       ],
                       if (chat.messageContent != null && chat.messageContent!.isNotEmpty)
-                        Text(
-                          chat.messageContent!,
+                        LinkifiedText(
+                          text: chat.messageContent!,
                           style: const TextStyle(color: AppColors.textDark, fontSize: 14, height: 1.4),
+                          linkStyle: TextStyle(
+                            color: Colors.blue.shade600,
+                            fontSize: 14,
+                            height: 1.4,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                     ],
                   ),

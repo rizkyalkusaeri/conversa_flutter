@@ -79,7 +79,7 @@ class CommentModel {
       repliesCount: stats['replies_count'] ?? 0,
       isLikedByMe: json['is_liked_by_me'] == true || json['is_liked_by_me'] == 1,
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'])
+          ? DateTime.tryParse(json['created_at'])?.toLocal()
           : null,
       replies: (json['replies'] as List<dynamic>?)
               ?.map((e) => CommentModel.fromJson(e as Map<String, dynamic>))

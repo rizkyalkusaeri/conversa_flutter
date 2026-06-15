@@ -15,6 +15,7 @@ import 'widgets/full_screen_image_viewer.dart';
 import 'widgets/rating_dialog.dart';
 import 'widgets/forward_sessions_sheet.dart';
 import 'widgets/multi_attachment_preview_sheet.dart';
+import 'widgets/linkified_text.dart';
 import 'package:flutter/services.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
 import 'package:fifgroup_android_ticketing/data/services/session_service.dart';
@@ -1367,12 +1368,18 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       ],
                       if (chat.messageContent != null &&
                           chat.messageContent!.isNotEmpty)
-                        Text(
-                          chat.messageContent!,
+                        LinkifiedText(
+                          text: chat.messageContent!,
                           style: TextStyle(
                             color: isMe ? Colors.white : AppColors.textDark,
                             fontSize: 14,
                             height: 1.4,
+                          ),
+                          linkStyle: TextStyle(
+                            color: isMe ? Colors.lightBlue.shade100 : Colors.blue.shade600,
+                            fontSize: 14,
+                            height: 1.4,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                     ],
