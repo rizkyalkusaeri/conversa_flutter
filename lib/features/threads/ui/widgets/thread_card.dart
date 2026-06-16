@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_config.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
+import 'package:fifgroup_android_ticketing/features/threads/ui/widgets/thread_likes_bottom_sheet.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/widgets/video_attachment_widget.dart';
 import 'package:fifgroup_android_ticketing/features/profile/ui/widgets/user_profile_popup.dart';
@@ -79,7 +81,7 @@ class ThreadCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Action bar: Like + Comment
-            _buildActionBar(),
+            _buildActionBar(context),
           ],
         ),
       ),
@@ -350,15 +352,52 @@ class ThreadCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionBar() {
+  void _showLikesBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => ThreadLikesBottomSheet(
+        threadUuid: thread.id,
+        repository: ThreadRepository(),
+      ),
+    );
+  }
+
+  Widget _buildActionBar(BuildContext context) {
     return Row(
       children: [
-        // Like
-        _buildActionButton(
-          icon: thread.isLikedByMe ? Icons.thumb_up : Icons.thumb_up_outlined,
-          label: thread.likesCount.toString(),
-          color: thread.isLikedByMe ? AppColors.primary : Colors.grey.shade500,
+        // Like Icon
+        InkWell(
           onTap: onLike,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Icon(
+              thread.isLikedByMe ? Icons.thumb_up : Icons.thumb_up_outlined,
+              size: 18,
+              color: thread.isLikedByMe ? AppColors.primary : Colors.grey.shade500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Clickable Likes Count
+        GestureDetector(
+          onTap: thread.likesCount > 0 ? () => _showLikesBottomSheet(context) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Text(
+              '${thread.likesCount} Likes',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: thread.likesCount > 0 ? Colors.grey.shade700 : Colors.grey.shade500,
+                decoration: thread.likesCount > 0 ? TextDecoration.underline : null,
+              ),
+            ),
+          ),
         ),
         const SizedBox(width: 20),
 

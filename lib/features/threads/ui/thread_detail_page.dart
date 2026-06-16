@@ -10,6 +10,8 @@ import '../../auth/cubit/app_auth/app_auth_state.dart';
 import '../cubit/thread_detail_cubit.dart';
 import '../cubit/thread_detail_state.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
+import 'package:fifgroup_android_ticketing/data/repositories/thread_repository.dart';
+import 'package:fifgroup_android_ticketing/features/threads/ui/widgets/thread_likes_bottom_sheet.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
 import 'widgets/comment_tile.dart';
 import 'create_thread_page.dart';
@@ -579,18 +581,15 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
           // Stats bar
           Row(
             children: [
-              InkWell(
-                onTap: () =>
-                    context.read<ThreadDetailCubit>().toggleLikeThread(),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () =>
+                        context.read<ThreadDetailCubit>().toggleLikeThread(),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
                         thread.isLikedByMe
                             ? Icons.thumb_up
                             : Icons.thumb_up_outlined,
@@ -599,20 +598,45 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                             ? AppColors.primary
                             : Colors.grey.shade500,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        thread.likesCount.toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: thread.likesCount > 0
+                        ? () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.vertical(top: Radius.circular(16)),
+                              ),
+                              builder: (context) => ThreadLikesBottomSheet(
+                                threadUuid: thread.id,
+                                repository: ThreadRepository(),
+                              ),
+                            );
+                          }
+                        : null,
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Text(
+                        '${thread.likesCount} Likes',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: thread.isLikedByMe
-                              ? AppColors.primary
+                          color: thread.likesCount > 0
+                              ? Colors.grey.shade700
                               : Colors.grey.shade500,
+                          decoration: thread.likesCount > 0
+                              ? TextDecoration.underline
+                              : null,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(width: 24),
               Row(

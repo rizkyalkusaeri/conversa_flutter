@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/thread_like_model.dart';
 import 'package:fifgroup_android_ticketing/data/services/thread_service.dart';
 import '../../../core/network/pagination_response.dart';
 
@@ -54,6 +55,13 @@ class ThreadRepository {
 
   Future<int> toggleLikeThread(String uuid) {
     return _service.toggleLikeThread(uuid);
+  }
+
+  Future<PaginationResponse<ThreadLikeModel>> fetchThreadLikes(
+    String threadUuid, {
+    required int page,
+  }) {
+    return _service.getThreadLikes(threadUuid, page: page);
   }
 
   Future<CommentModel> postComment(
