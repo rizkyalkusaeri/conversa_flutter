@@ -5,6 +5,7 @@ import '../../../core/network/pagination_response.dart';
 import '../../../core/utils/error_helper.dart';
 import 'package:fifgroup_android_ticketing/data/models/thread_model.dart';
 import 'package:fifgroup_android_ticketing/data/models/comment_model.dart';
+import 'package:fifgroup_android_ticketing/data/models/thread_like_model.dart';
 
 class ThreadService {
   final Dio _dio = DioClient.getInstance;
@@ -94,6 +95,27 @@ class ThreadService {
       return data['likes_count'] ?? 0;
     } catch (e) {
       throw Exception(ErrorHelper.getFriendlyError(e));
+    }
+  }
+
+  /// Fetch paginated list of users who liked a thread
+  Future<PaginationResponse<ThreadLikeModel>> getThreadLikes(
+    String threadUuid, {
+    required int page,
+    int limit = 15,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/threads/$threadUuid/likes',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+
+      return PaginationResponse<ThreadLikeModel>.fromJson(
+        response.data,
+        (json) => ThreadLikeModel.fromJson(json as Map<String, dynamic>),
+      );
+    } catch (e) {
+      rethrow;
     }
   }
 
