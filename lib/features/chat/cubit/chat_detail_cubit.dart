@@ -194,6 +194,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         messageType: newMessage.messageType,
         systemMessageType: newMessage.systemMessageType,
         attachmentUrl: newMessage.attachmentUrl,
+        attachmentName: newMessage.attachmentName,
         isRead: true, // Force read locally
         createdAt: newMessage.createdAt,
         senderId: newMessage.senderId,

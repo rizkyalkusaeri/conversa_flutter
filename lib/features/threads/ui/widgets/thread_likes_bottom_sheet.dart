@@ -160,7 +160,7 @@ class _ThreadLikesBottomSheetState extends State<ThreadLikesBottomSheet> {
                             ),
                           ),
                           subtitle: Text(
-                            '${like.userRole ?? "-"} · ${like.userLevel ?? "-"}',
+                            '${like.userRole ?? "-"} · ${like.userLevel ?? "-"} · ${like.userLocation ?? "-"}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,

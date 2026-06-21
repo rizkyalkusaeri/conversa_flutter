@@ -341,7 +341,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  chat.attachmentUrl?.split('/').last ?? 'View Document',
+                  chat.attachmentName ?? chat.attachmentUrl?.split('/').last ?? 'View Document',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

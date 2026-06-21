@@ -4,6 +4,7 @@ class ThreadLikeModel {
   final String userName;
   final String? userRole;
   final String? userLevel;
+  final String? userLocation;
 
   ThreadLikeModel({
     required this.id,
@@ -11,6 +12,7 @@ class ThreadLikeModel {
     required this.userName,
     this.userRole,
     this.userLevel,
+    this.userLocation,
   });
 
   factory ThreadLikeModel.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class ThreadLikeModel {
       userName: userJson['full_name'] ?? 'User',
       userRole: userJson['role_name'],
       userLevel: userJson['level_name'],
+      userLocation: userJson['location_name'],
     );
   }
 }

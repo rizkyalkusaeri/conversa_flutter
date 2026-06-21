@@ -1350,6 +1350,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
+                                            chat.attachmentName ??
                                             chat.attachmentUrl
                                                     ?.split('/')
                                                     .last ??
