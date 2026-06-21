@@ -63,7 +63,7 @@ class AppVersionInfo {
 
 class UpdateService {
   /// Base URL public share Nextcloud
-  static const String _nextcloudToken = '2grPz9fwT6nH4S6';
+  static const String _nextcloudToken = 'fMkiYKKqRkz2Lmp';
   static const String _nextcloudBaseUrl = 'https://cloud.fi-link.id';
   static const String _folderPath = '/Aplikasi Android';
 
@@ -116,19 +116,22 @@ class UpdateService {
         'body=${response.data?.substring(0, (response.data?.length ?? 0).clamp(0, 200))}',
       );
 
-      if (response.statusCode != 200 || response.data == null || response.data!.trim().isEmpty) {
-        debugPrint('UpdateService: version.json not found or empty. '
-            'Pastikan file sudah diupload ke Nextcloud.');
+      if (response.statusCode != 200 ||
+          response.data == null ||
+          response.data!.trim().isEmpty) {
+        debugPrint(
+          'UpdateService: version.json not found or empty. '
+          'Pastikan file sudah diupload ke Nextcloud.',
+        );
         return null;
       }
 
       // Parse JSON manual dari string
-      final Map<String, dynamic> json =
-          Map<String, dynamic>.from(
-            (response.data! as dynamic) is Map
-                ? response.data! as Map
-                : _parseJson(response.data!),
-          );
+      final Map<String, dynamic> json = Map<String, dynamic>.from(
+        (response.data! as dynamic) is Map
+            ? response.data! as Map
+            : _parseJson(response.data!),
+      );
 
       final remoteInfo = AppVersionInfo.fromJson(json);
       debugPrint(
@@ -156,7 +159,6 @@ class UpdateService {
     // ignore: avoid_dynamic_calls
     return (jsonDecode(jsonString) as Map<String, dynamic>);
   }
-
 
   /// Download APK dari Nextcloud dengan progress callback.
   /// Melempar [NoInternetException] atau [DownloadInterruptedException] jika gagal.
@@ -195,7 +197,9 @@ class UpdateService {
       // Hapus file yang mungkin partial
       if (await existingFile.exists()) await existingFile.delete();
 
-      debugPrint('UpdateService: Download DioException type=${e.type}, msg=${e.message}');
+      debugPrint(
+        'UpdateService: Download DioException type=${e.type}, msg=${e.message}',
+      );
 
       // Cek apakah ini masalah koneksi
       if (e.type == DioExceptionType.connectionError ||
@@ -226,7 +230,9 @@ class UpdateService {
       apkPath,
       type: 'application/vnd.android.package-archive',
     );
-    debugPrint('UpdateService: OpenFile result = ${result.type} ${result.message}');
+    debugPrint(
+      'UpdateService: OpenFile result = ${result.type} ${result.message}',
+    );
 
     if (result.type == ResultType.permissionDenied) {
       throw const InstallPermissionDeniedException();
