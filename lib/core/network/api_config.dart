@@ -1,5 +1,5 @@
 class ApiConfig {
-  static bool isProduction = false;
+  static bool isProduction = true;
   // Gunakan IP lokal host atau 10.0.2.2 untuk emulator android
   static String get baseUrl => isProduction
       ? 'https://fi-link.id/api/v1'
