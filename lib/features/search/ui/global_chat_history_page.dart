@@ -131,7 +131,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
                       }
 
                       final chat = chats[index];
-                      return _buildMessageBubble(context, chat);
+                      return _buildMessageBubble(context, chat, isLast: index == 0);
                     },
                   );
                 }
@@ -214,11 +214,11 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
     );
   }
 
-  Widget _buildMessageBubble(BuildContext context, ChatMessageModel chat) {
+  Widget _buildMessageBubble(BuildContext context, ChatMessageModel chat, {bool isLast = false}) {
     final timeStr = chat.createdAt != null ? DateFormat('h:mm a').format(chat.createdAt!) : "";
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: isLast ? 48 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
