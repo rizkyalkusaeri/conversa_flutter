@@ -7,8 +7,6 @@ import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/network/api_config.dart';
-
 // ─────────────────────────────────────────────
 // Custom Exceptions
 // ─────────────────────────────────────────────
@@ -82,10 +80,10 @@ class UpdateService {
   /// Mengembalikan [AppVersionInfo] jika ada update, null jika tidak.
   static Future<AppVersionInfo?> checkForUpdate() async {
     // Hanya aktif di production
-    if (!ApiConfig.isProduction) {
-      debugPrint('UpdateService: Skipped (dev mode)');
-      return null;
-    }
+    // if (!ApiConfig.isProduction) {
+    //   debugPrint('UpdateService: Skipped (dev mode)');
+    //   return null;
+    // }
 
     try {
       final packageInfo = await PackageInfo.fromPlatform();
