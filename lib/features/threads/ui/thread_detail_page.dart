@@ -539,7 +539,7 @@ class _ThreadDetailPageState extends State<ThreadDetailPage> {
                 .map(
                   (att) => GestureDetector(
                     onTap: () =>
-                        _openAttachment('${ApiConfig.imageUrl}${att.url}'),
+                        _openAttachment(ApiConfig.getDownloadUrl(att.url!, att.originalName)),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(
