@@ -313,7 +313,7 @@ class CommentTile extends StatelessWidget {
           if (attachments.any((a) => !a.isImage && !a.isVideo))
             ...attachments.where((a) => !a.isImage && !a.isVideo).map((att) {
               return GestureDetector(
-                onTap: () => _launchURL('${ApiConfig.imageUrl}${att.url}'),
+                onTap: () => _launchURL(ApiConfig.getDownloadUrl(att.url!, att.originalName)),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(

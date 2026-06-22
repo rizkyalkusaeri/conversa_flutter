@@ -330,7 +330,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
     } else {
       return GestureDetector(
         onTap: () =>
-            launchUrl(Uri.parse(ApiConfig.imageUrl + chat.attachmentUrl!)),
+            launchUrl(Uri.parse(ApiConfig.getDownloadUrl(chat.attachmentUrl!, chat.attachmentName))),
         child: Container(
           padding: const EdgeInsets.all(12),
           color: Colors.grey.withValues(alpha: 0.2),

@@ -1275,7 +1275,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                     // Video Tap action (bisa diisi jika ingin fullscreen player khusus)
                                   } else {
                                     _openAttachment(
-                                      ApiConfig.imageUrl + chat.attachmentUrl!,
+                                      ApiConfig.getDownloadUrl(chat.attachmentUrl!, chat.attachmentName),
                                     );
                                   }
                                 },
