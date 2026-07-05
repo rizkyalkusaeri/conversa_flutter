@@ -7,6 +7,8 @@ import '../../auth/cubit/app_auth/app_auth_state.dart';
 import '../cubit/session_list_cubit.dart';
 import '../cubit/session_list_state.dart';
 import '../cubit/create_session_cubit.dart';
+import '../cubit/active_session_count_cubit.dart';
+import '../cubit/active_session_count_state.dart';
 import 'package:fifgroup_android_ticketing/data/models/session_model.dart';
 import 'create_session_sheet.dart';
 import 'chat_detail_page.dart';
@@ -25,28 +27,22 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  late SessionListCubit _cubit;
+  late SessionListCubit _activeCubit;
+  late SessionListCubit _closedCubit;
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
-  String _selectedStatus = 'active';
-  StreamSubscription<void>? _sessionRefreshSub;
 
   @override
   void initState() {
     super.initState();
-    _cubit = SessionListCubit(statusFilter: 'active')..loadInitial();
-
-    // Subscribe ke RealtimeEventBus untuk refresh saat ada SessionCreated/SessionUpdated
-    _sessionRefreshSub = RealtimeEventBus.instance.onSessionRefresh.listen((_) {
-      final query = _searchController.text;
-      _cubit.loadInitial(searchQuery: query);
-    });
+    _activeCubit = SessionListCubit(statusFilter: 'active')..loadInitial();
+    _closedCubit = SessionListCubit(statusFilter: 'closed')..loadInitial();
   }
 
   @override
   void dispose() {
-    _sessionRefreshSub?.cancel();
-    _cubit.close();
+    _activeCubit.close();
+    _closedCubit.close();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -55,7 +51,8 @@ class _ChatPageState extends State<ChatPage> {
   void _onSearchChanged(String query) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      _cubit.loadInitial(searchQuery: query);
+      _activeCubit.loadInitial(searchQuery: query);
+      _closedCubit.loadInitial(searchQuery: query);
     });
   }
 
@@ -69,8 +66,8 @@ class _ChatPageState extends State<ChatPage> {
 
     bool canCreateSession = authRole?.toUpperCase() != 'ADMIN';
 
-    return BlocProvider.value(
-      value: _cubit,
+    return DefaultTabController(
+      length: 2,
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -85,12 +82,28 @@ class _ChatPageState extends State<ChatPage> {
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: _buildTabBar(),
+          ),
         ),
         body: Column(
           children: [
             _buildSearchBar(),
-            _buildFilters(),
-            const Expanded(child: SessionListView()),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  BlocProvider.value(
+                    value: _activeCubit,
+                    child: const SessionListView(),
+                  ),
+                  BlocProvider.value(
+                    value: _closedCubit,
+                    child: const SessionListView(),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         floatingActionButton: canCreateSession
@@ -106,14 +119,93 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TabBar(
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.grey.shade600,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                const SizedBox(width: 6),
+                const Text("Aktif"),
+                const SizedBox(width: 6),
+                BlocBuilder<ActiveSessionCountCubit, ActiveSessionCountState>(
+                  builder: (context, state) {
+                    int count = 0;
+                    if (state is ActiveSessionCountLoaded) {
+                      count = state.count;
+                    }
+                    if (count == 0) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        count.toString(),
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.history_rounded, size: 16),
+                const SizedBox(width: 6),
+                const Text("Riwayat"),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 14,
+          color: AppColors.textDark,
+        ),
         decoration: InputDecoration(
           hintText: 'Cari Sesi...',
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            color: Colors.grey.shade400,
+          ),
           prefixIcon: const Icon(Icons.search, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
@@ -126,50 +218,6 @@ class _ChatPageState extends State<ChatPage> {
             horizontal: 16,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFilters() {
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _buildFilterChip('Aktif', 'active'),
-          _buildFilterChip('Riwayat', 'closed'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedStatus == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          if (selected) {
-            setState(() => _selectedStatus = value);
-            _cubit.loadInitial(
-              searchQuery: _searchController.text,
-              newStatusFilter: value,
-            );
-          }
-        },
-        selectedColor: AppColors.primary,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        backgroundColor: Colors.grey.shade200,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        side: BorderSide.none,
-        showCheckmark: false,
       ),
     );
   }
@@ -187,7 +235,7 @@ class _ChatPageState extends State<ChatPage> {
       },
     ).then((didCreate) {
       if (didCreate == true) {
-        _cubit.loadInitial(searchQuery: _searchController.text);
+        RealtimeEventBus.instance.notifySessionRefresh();
       }
     });
   }
@@ -245,10 +293,6 @@ class _SessionListViewState extends State<SessionListView> {
                 backgroundColor: Colors.green,
               ),
             );
-            // Refresh list
-            final state = context.read<SessionListCubit>().state;
-            final query = (state is SessionListLoaded) ? state.searchQuery : '';
-            context.read<SessionListCubit>().loadInitial(searchQuery: query);
           } else if (actionState is SessionActionError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -394,6 +438,8 @@ class _SessionListViewState extends State<SessionListView> {
   Widget _buildSessionTile(BuildContext context, SessionModel session) {
     final bool isOpen = session.status == 'OPEN';
     final bool isReqClose = session.status == 'REQ_CLOSE';
+    final bool isClosed = session.status == 'CLOSED' || session.status == 'Selesai';
+
     final statusColor = isOpen
         ? AppColors.success
         : (isReqClose ? Colors.amber : Colors.grey);
@@ -427,12 +473,19 @@ class _SessionListViewState extends State<SessionListView> {
       initials = parts.isNotEmpty ? parts[0].substring(0, 1).toUpperCase() : "";
     }
 
+    final Color cardBgColor = isClosed ? Colors.grey.shade50 : Colors.white;
+    final Color borderColor = isClosed ? Colors.grey.shade200 : AppColors.primary.withValues(alpha: 0.15);
+    final double borderW = isClosed ? 1.0 : 1.2;
+    final Color nameColor = isClosed ? Colors.grey.shade600 : AppColors.textDark;
+    final Color categoryColor = isClosed ? Colors.grey.shade400 : Colors.grey.shade600;
+    final Color topicColor = isClosed ? Colors.grey.shade400 : AppColors.primary;
+    final Color descriptionColor = isClosed ? Colors.grey.shade400 : Colors.grey.shade600;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () {
-          final cubit = context.read<SessionListCubit>();
           // Hapus semua notifikasi saat user membuka session dari dalam app.
           // Ini menangani kasus: notif pesan masuk saat app aktif, lalu
           // user langsung buka session via list tanpa tap notifikasi.
@@ -454,10 +507,7 @@ class _SessionListViewState extends State<SessionListView> {
             ),
           ).then((_) {
             if (mounted) {
-              final query = (cubit.state is SessionListLoaded)
-                  ? (cubit.state as SessionListLoaded).searchQuery
-                  : '';
-              cubit.loadInitial(searchQuery: query);
+              RealtimeEventBus.instance.notifySessionRefresh();
             }
           });
         },
@@ -465,9 +515,9 @@ class _SessionListViewState extends State<SessionListView> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardBgColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: borderColor, width: borderW),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withValues(alpha: 0.06),
@@ -490,11 +540,13 @@ class _SessionListViewState extends State<SessionListView> {
                 },
                 child: CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.secondary.withValues(alpha: 0.2),
+                  backgroundColor: isClosed 
+                      ? Colors.grey.shade200 
+                      : AppColors.secondary.withValues(alpha: 0.2),
                   child: Text(
                     initials,
-                    style: const TextStyle(
-                      color: AppColors.secondary,
+                    style: TextStyle(
+                      color: isClosed ? Colors.grey : AppColors.secondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -512,10 +564,10 @@ class _SessionListViewState extends State<SessionListView> {
                         Expanded(
                           child: Text(
                             displayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+                              color: nameColor,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -614,7 +666,7 @@ class _SessionListViewState extends State<SessionListView> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
+                            color: categoryColor,
                           ),
                         ),
                       ],
@@ -628,7 +680,7 @@ class _SessionListViewState extends State<SessionListView> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
+                            color: categoryColor,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -637,16 +689,16 @@ class _SessionListViewState extends State<SessionListView> {
                               ? Icons.confirmation_number_outlined
                               : Icons.topic_outlined,
                           size: 12,
-                          color: AppColors.primary,
+                          color: topicColor,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             identifier,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                              color: topicColor,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -664,7 +716,7 @@ class _SessionListViewState extends State<SessionListView> {
                         (session.latestChat?.message ?? session.description)!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: descriptionColor,
                           height: 1.3,
                         ),
                         maxLines: 1,
@@ -742,7 +794,6 @@ class _SessionListViewState extends State<SessionListView> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      final cubit = context.read<SessionListCubit>();
                       Navigator.pop(ctx);
                       // Hapus semua notifikasi saat user membuka session dari popup detail.
                       NotificationService.clearAll();
@@ -758,10 +809,7 @@ class _SessionListViewState extends State<SessionListView> {
                         ),
                       ).then((_) {
                         if (mounted) {
-                          final query = (cubit.state is SessionListLoaded)
-                              ? (cubit.state as SessionListLoaded).searchQuery
-                              : '';
-                          cubit.loadInitial(searchQuery: query);
+                          RealtimeEventBus.instance.notifySessionRefresh();
                         }
                       });
                     },

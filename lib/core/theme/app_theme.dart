@@ -26,15 +26,27 @@ class AppTheme {
         headlineMedium: TextStyle(
           color: AppColors.textDark,
           fontWeight: FontWeight.bold,
+          fontFamily: 'Poppins',
         ),
-        bodyMedium: TextStyle(color: AppColors.textDark),
-        labelLarge: TextStyle(color: AppColors.textDark),
+        bodyMedium: TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'),
+        labelLarge: TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'),
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.bold,
           color: AppColors.textDark,
+          fontFamily: 'Poppins',
         ),
-        bodyLarge: TextStyle(fontSize: 16, color: AppColors.textDark),
+        bodyLarge: TextStyle(fontSize: 16, color: AppColors.textDark, fontFamily: 'Poppins'),
+        titleMedium: TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'), // Untuk input text pada TextField
+        titleSmall: TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'),
+        bodySmall: TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'),
+      ),
+
+      // 3. Konfigurasi Input Global (Aksesibilitas Font Poppins pada Input Field & Hints)
+      inputDecorationTheme: const InputDecorationTheme(
+        hintStyle: TextStyle(fontFamily: 'Poppins', color: Color(0xFF9CA3AF)),
+        labelStyle: TextStyle(fontFamily: 'Poppins'),
+        errorStyle: TextStyle(fontFamily: 'Poppins'),
       ),
 
       // 3. Konfigurasi Komponen Spesifik (Agar mirip tombol di gambar Mas)

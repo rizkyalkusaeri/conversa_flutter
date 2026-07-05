@@ -121,16 +121,47 @@ class _SearchPageState extends State<SearchPage>
         ),
         body: Column(
           children: [
-            TabBar(
-              controller: _tabController,
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              tabs: const [
-                Tab(text: 'Sesi'),
-                Tab(text: 'User'),
-              ],
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.grey.shade600,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.confirmation_number_outlined, size: 16),
+                        SizedBox(width: 6),
+                        Text('Sesi'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_outline_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('User'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             _buildSearchBar(),
             Expanded(
@@ -151,8 +182,18 @@ class _SearchPageState extends State<SearchPage>
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 14,
+          color: AppColors.textDark,
+        ),
         decoration: InputDecoration(
           hintText: 'Cari tiket, topik, no appl, atau nama...',
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            color: Colors.grey.shade400,
+          ),
           prefixIcon: const Icon(Icons.search, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,

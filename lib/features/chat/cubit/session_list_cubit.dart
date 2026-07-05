@@ -1,18 +1,28 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/session_repository.dart';
+import '../../../core/services/realtime_event_bus.dart';
 import 'session_list_state.dart';
 
 class SessionListCubit extends Cubit<SessionListState> {
   final SessionRepository _repository;
   String statusFilter; // 'active' atau 'closed'
   bool _isLoadingMore = false;
+  StreamSubscription<void>? _refreshSub;
+  String _currentQuery = '';
 
   SessionListCubit({SessionRepository? repository, required this.statusFilter})
     : _repository = repository ?? SessionRepository(),
-      super(SessionListInitial());
+      super(SessionListInitial()) {
+    // Berlangganan ke EventBus secara internal agar cubit me-refresh sendiri saat ada sinyal refresh
+    _refreshSub = RealtimeEventBus.instance.onSessionRefresh.listen((_) {
+      loadInitial(searchQuery: _currentQuery);
+    });
+  }
 
   Future<void> loadInitial({String searchQuery = '', String? newStatusFilter}) async {
+    _currentQuery = searchQuery;
     if (newStatusFilter != null) {
       statusFilter = newStatusFilter;
     }
@@ -88,5 +98,11 @@ class SessionListCubit extends Cubit<SessionListState> {
     }
     final raw = e.toString();
     return raw.startsWith('Exception: ') ? raw.replaceFirst('Exception: ', '') : raw;
+  }
+
+  @override
+  Future<void> close() {
+    _refreshSub?.cancel();
+    return super.close();
   }
 }
