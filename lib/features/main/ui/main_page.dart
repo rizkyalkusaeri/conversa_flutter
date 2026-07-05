@@ -88,6 +88,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       debugPrint('App resumed — checking Echo connection...');
       // Bersihkan semua notifikasi saat app kembali ke foreground.
       NotificationService.clearAll();
+      // Panggil fetchCount untuk menyinkronkan badge secara instan setelah aplikasi kembali dari background.
+      if (mounted) {
+        context.read<ActiveSessionCountCubit>().fetchCount();
+      }
       // Kalau koneksi Echo putus, panggil reconnect (tanpa re-init/destroy koneksi lama)
       if (!EchoService.isConnected && _currentUserId != null) {
         debugPrint(

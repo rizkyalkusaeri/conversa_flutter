@@ -33,12 +33,17 @@ class FormTextField extends StatelessWidget {
         maxLines: maxLines,
         obscureText: obscureText,
         style: const TextStyle(
+          fontFamily: 'Poppins',
           color: AppColors.textDark,
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 15),
+          hintStyle: const TextStyle(
+            fontFamily: 'Poppins',
+            color: Color(0xFF9CA3AF),
+            fontSize: 15,
+          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,

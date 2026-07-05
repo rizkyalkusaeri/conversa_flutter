@@ -137,8 +137,18 @@ class _ThreadsPageState extends State<ThreadsPage> {
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 14,
+          color: AppColors.textDark,
+        ),
         decoration: InputDecoration(
           hintText: 'Cari thread...',
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            color: Colors.grey.shade400,
+          ),
           prefixIcon: const Icon(Icons.search, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,

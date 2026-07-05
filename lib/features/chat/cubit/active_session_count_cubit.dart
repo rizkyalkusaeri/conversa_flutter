@@ -21,7 +21,9 @@ class ActiveSessionCountCubit extends Cubit<ActiveSessionCountState> {
   }
 
   Future<int> fetchCount() async {
-    emit(ActiveSessionCountLoading());
+    if (state is! ActiveSessionCountLoaded) {
+      emit(ActiveSessionCountLoading());
+    }
     try {
       final response = await _repository.fetchSessions('active', 1);
       final count = response.meta.total;
