@@ -8,6 +8,8 @@ import 'search_state.dart';
 
 class SearchCubit extends Cubit<SearchState> {
   final SessionRepository _repository;
+  bool _isLoadingMoreSessions = false;
+  bool _isLoadingMoreUsers = false;
 
   SearchCubit({SessionRepository? repository})
       : _repository = repository ?? SessionRepository(),
@@ -22,6 +24,8 @@ class SearchCubit extends Cubit<SearchState> {
   }) async {
     emit(SearchLoading());
     try {
+      _isLoadingMoreSessions = false;
+      _isLoadingMoreUsers = false;
       final sessionsFuture = _repository.fetchGlobalSessions(
         1,
         status: statusFilter,
@@ -58,8 +62,10 @@ class SearchCubit extends Cubit<SearchState> {
   }
 
   Future<void> loadMoreSessions() async {
+    if (_isLoadingMoreSessions) return;
     final currentState = state;
     if (currentState is SearchLoaded && !currentState.hasReachedMax) {
+      _isLoadingMoreSessions = true;
       try {
         final nextPage = currentState.currentPage + 1;
         final response = await _repository.fetchGlobalSessions(
@@ -70,20 +76,27 @@ class SearchCubit extends Cubit<SearchState> {
           scope: currentState.scope,
         );
 
+        final existingIds = currentState.sessions.map((s) => s.id).toSet();
+        final newSessions = response.data.where((s) => !existingIds.contains(s.id)).toList();
+
         emit(currentState.copyWith(
-          sessions: List.of(currentState.sessions)..addAll(response.data),
+          sessions: List.of(currentState.sessions)..addAll(newSessions),
           hasReachedMax: response.meta.currentPage >= response.meta.lastPage,
           currentPage: nextPage,
         ));
       } catch (e) {
         // Keep current state if loading fails
+      } finally {
+        _isLoadingMoreSessions = false;
       }
     }
   }
 
   Future<void> loadMoreUsers() async {
+    if (_isLoadingMoreUsers) return;
     final currentState = state;
     if (currentState is SearchLoaded && !currentState.usersHasReachedMax) {
+      _isLoadingMoreUsers = true;
       try {
         final nextPage = currentState.usersCurrentPage + 1;
         final response = await _repository.fetchGlobalUsers(
@@ -91,13 +104,18 @@ class SearchCubit extends Cubit<SearchState> {
           search: currentState.searchQuery,
         );
 
+        final existingIds = currentState.users.map((u) => u.id).toSet();
+        final newUsers = response.data.where((u) => !existingIds.contains(u.id)).toList();
+
         emit(currentState.copyWith(
-          users: List.of(currentState.users)..addAll(response.data),
+          users: List.of(currentState.users)..addAll(newUsers),
           usersHasReachedMax: response.meta.currentPage >= response.meta.lastPage,
           usersCurrentPage: nextPage,
         ));
       } catch (e) {
         // Keep current state if loading fails
+      } finally {
+        _isLoadingMoreUsers = false;
       }
     }
   }

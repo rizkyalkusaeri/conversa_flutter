@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:bloc/bloc.dart';
 import 'package:fifgroup_android_ticketing/data/repositories/chat_repository.dart';
 import 'global_chat_state.dart';
@@ -7,6 +8,7 @@ class GlobalChatCubit extends Cubit<GlobalChatState> {
   final ChatRepository _repository;
   final String sessionUuid;
   int _currentPage = 1;
+  bool _isLoadingMore = false;
 
   GlobalChatCubit({
     required this.sessionUuid,
@@ -18,6 +20,7 @@ class GlobalChatCubit extends Cubit<GlobalChatState> {
     emit(const GlobalChatLoading(isFirstLoad: true));
     try {
       _currentPage = 1;
+      _isLoadingMore = false;
       final response = await _repository.getGlobalChats(sessionUuid, _currentPage, search: searchQuery);
       emit(GlobalChatLoaded(
         chats: response.data,
@@ -30,24 +33,32 @@ class GlobalChatCubit extends Cubit<GlobalChatState> {
   }
 
   Future<void> loadMoreChats() async {
+    if (_isLoadingMore) return;
     if (state is GlobalChatLoaded) {
       final currentState = state as GlobalChatLoaded;
       if (currentState.hasReachedMax) return;
 
+      _isLoadingMore = true;
       try {
         _currentPage++;
         final response = await _repository.getGlobalChats(sessionUuid, _currentPage, search: currentState.searchQuery);
         
         final hasReachedMax = response.meta.currentPage == response.meta.lastPage || response.data.isEmpty;
         
+        // Deduplicate chats by ID to prevent duplication in UI
+        final existingIds = currentState.chats.map((c) => c.id).toSet();
+        final newChats = response.data.where((c) => !existingIds.contains(c.id)).toList();
+
         emit(currentState.copyWith(
-          chats: List.of(currentState.chats)..addAll(response.data),
+          chats: List.of(currentState.chats)..addAll(newChats),
           hasReachedMax: hasReachedMax,
         ));
       } catch (e) {
         // Rollback current page if failed
         _currentPage--;
-        emit(GlobalChatError(_friendlyError(e)));
+        debugPrint('[GlobalChatCubit] Failed to load more chats: $e');
+      } finally {
+        _isLoadingMore = false;
       }
     }
   }

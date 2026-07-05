@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../constants/app_colors.dart';
@@ -35,7 +36,7 @@ class UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogStateWidget extends State<UpdateDialog>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   _UpdateDialogPhase _phase = _UpdateDialogPhase.info;
   _UpdateErrorType _errorType = _UpdateErrorType.unknown;
 
@@ -53,6 +54,7 @@ class _UpdateDialogStateWidget extends State<UpdateDialog>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -60,10 +62,12 @@ class _UpdateDialogStateWidget extends State<UpdateDialog>
     _pulseAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    _checkExistingApk();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     super.dispose();
   }
@@ -72,35 +76,60 @@ class _UpdateDialogStateWidget extends State<UpdateDialog>
   // Aksi
   // ──────────────────────────────────────────────
 
-  /// Step 1 — Cek permission install SEBELUM mulai download.
-  /// Jika belum granted, buka Settings dan tunggu user kembali.
-  /// Return true jika sudah granted, false jika masih denied.
-  Future<bool> _ensureInstallPermission() async {
-    if (!Platform.isAndroid) return true;
-
-    final status = await Permission.requestInstallPackages.status;
-    debugPrint('UpdateDialog: Install permission = $status');
-    if (status.isGranted) return true;
-
-    // Buka Settings — user harus aktifkan manual
-    await openAppSettings();
-
-    // Cek ulang setelah user kembali dari Settings
-    final retryStatus = await Permission.requestInstallPackages.status;
-    debugPrint('UpdateDialog: Install permission after settings = $retryStatus');
-    return retryStatus.isGranted;
+  Future<void> _checkExistingApk() async {
+    try {
+      final dir = await getExternalStorageDirectory();
+      if (dir != null) {
+        final path = '${dir.path}/${widget.versionInfo.apkFilename}';
+        final file = File(path);
+        if (await file.exists()) {
+          setState(() {
+            _downloadedApkPath = path;
+          });
+          debugPrint('UpdateDialog: Found existing downloaded APK at $path');
+        }
+      }
+    } catch (e) {
+      debugPrint('UpdateDialog: Error checking existing APK — $e');
+    }
   }
 
-  /// Titik masuk utama: cek permission → download → install
+  Future<bool> _isInstallPermissionGranted() async {
+    if (!Platform.isAndroid) return true;
+    final status = await Permission.requestInstallPackages.status;
+    return status.isGranted;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissionOnResume();
+    }
+  }
+
+  Future<void> _checkPermissionOnResume() async {
+    if (_phase == _UpdateDialogPhase.error &&
+        _errorType == _UpdateErrorType.permissionDenied) {
+      final isGranted = await _isInstallPermissionGranted();
+      if (isGranted && mounted) {
+        if (_downloadedApkPath != null) {
+          await _doInstall();
+        } else {
+          setState(() {
+            _phase = _UpdateDialogPhase.info;
+          });
+        }
+      }
+    }
+  }
+
+  /// Titik masuk utama: download → install (atau direct install if cached)
   Future<void> _startDownloadFlow() async {
-    // ① Cek permission dulu, SEBELUM download
-    final permOk = await _ensureInstallPermission();
-    if (!permOk) {
-      _setError(_UpdateErrorType.permissionDenied);
+    if (_downloadedApkPath != null) {
+      await _doInstall();
       return;
     }
 
-    // ② Download APK
     setState(() {
       _phase = _UpdateDialogPhase.downloading;
       _progress = 0.0;
@@ -133,46 +162,35 @@ class _UpdateDialogStateWidget extends State<UpdateDialog>
       return;
     }
 
-    // ③ Install
     await _doInstall();
   }
 
   /// Install APK yang sudah ada di [_downloadedApkPath].
-  /// Dipanggil setelah download selesai, atau saat retry install
-  /// tanpa perlu download ulang.
   Future<void> _doInstall() async {
     if (_downloadedApkPath == null) {
-      // Harusnya tidak terjadi, tapi fallback ke flow penuh
       await _startDownloadFlow();
       return;
     }
 
     if (!mounted) return;
+
+    final permOk = await _isInstallPermissionGranted();
+    if (!permOk) {
+      _setError(_UpdateErrorType.permissionDenied);
+      return;
+    }
+
     setState(() => _phase = _UpdateDialogPhase.installing);
 
     await Future.delayed(const Duration(milliseconds: 800));
 
     try {
       await UpdateService.installApk(_downloadedApkPath!);
-      // Installer sudah terbuka — dialog tetap di state installing
     } on InstallPermissionDeniedException {
-      // Permission dicabut setelah download — minta lagi
       _setError(_UpdateErrorType.permissionDenied);
     } catch (e) {
       debugPrint('UpdateDialog: Install error — $e');
       _setError(_UpdateErrorType.unknown);
-    }
-  }
-
-  /// Hanya buka Settings lalu coba install ulang (APK sudah ada, tidak perlu re-download)
-  Future<void> _openSettingsThenInstall() async {
-    await openAppSettings();
-    final status = await Permission.requestInstallPackages.status;
-    if (!mounted) return;
-    if (status.isGranted) {
-      await _doInstall();
-    } else {
-      _setError(_UpdateErrorType.permissionDenied);
     }
   }
 
@@ -546,12 +564,27 @@ class _UpdateDialogStateWidget extends State<UpdateDialog>
             'Aktifkan izin "Instal aplikasi tidak dikenal" untuk Fi-Link di pengaturan, lalu kembali ke sini.',
         primaryIcon: Icons.settings_rounded,
         primaryLabel: 'Buka Pengaturan',
-        // Setelah settings, langsung install — TIDAK download ulang jika APK sudah ada
-        primaryAction: _downloadedApkPath != null
-            ? _openSettingsThenInstall
-            : _startDownloadFlow,
-        secondaryLabel: _downloadedApkPath != null ? 'Sudah Diberi Izin, Install Sekarang' : null,
-        secondaryAction: _downloadedApkPath != null ? _doInstall : null,
+        primaryAction: openAppSettings,
+        secondaryLabel: _downloadedApkPath != null ? 'Sudah Diberi Izin, Install Sekarang' : 'Periksa Izin & Download',
+        secondaryAction: () async {
+          final isGranted = await _isInstallPermissionGranted();
+          if (isGranted) {
+            if (_downloadedApkPath != null) {
+              await _doInstall();
+            } else {
+              await _startDownloadFlow();
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Izin belum diberikan. Silakan aktifkan di pengaturan.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        },
       ),
       _UpdateErrorType.unknown => _ErrorConfig(
         icon: Icons.error_outline_rounded,

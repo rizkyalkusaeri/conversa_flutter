@@ -6,6 +6,7 @@ import 'session_list_state.dart';
 class SessionListCubit extends Cubit<SessionListState> {
   final SessionRepository _repository;
   String statusFilter; // 'active' atau 'closed'
+  bool _isLoadingMore = false;
 
   SessionListCubit({SessionRepository? repository, required this.statusFilter})
     : _repository = repository ?? SessionRepository(),
@@ -17,6 +18,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     }
     emit(SessionListLoading());
     try {
+      _isLoadingMore = false;
       final response = await _repository.fetchSessions(statusFilter, 1, search: searchQuery);
       emit(
         SessionListLoaded(
@@ -32,8 +34,10 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   Future<void> loadMore() async {
+    if (_isLoadingMore) return;
     final currentState = state;
     if (currentState is SessionListLoaded && !currentState.hasReachedMax) {
+      _isLoadingMore = true;
       try {
         final nextPage = currentState.currentPage + 1;
         final response = await _repository.fetchSessions(
@@ -42,9 +46,12 @@ class SessionListCubit extends Cubit<SessionListState> {
           search: currentState.searchQuery,
         );
 
+        final existingIds = currentState.sessions.map((s) => s.id).toSet();
+        final newSessions = response.data.where((s) => !existingIds.contains(s.id)).toList();
+
         emit(
           currentState.copyWith(
-            sessions: List.of(currentState.sessions)..addAll(response.data),
+            sessions: List.of(currentState.sessions)..addAll(newSessions),
             hasReachedMax: response.meta.currentPage >= response.meta.lastPage,
             currentPage: nextPage,
           ),
@@ -52,6 +59,8 @@ class SessionListCubit extends Cubit<SessionListState> {
       } catch (e) {
         // Biarkan state yang ada jika loading next page gagal (Supaya list tidak hilang)
         // print("Gagal fetch page: $e");
+      } finally {
+        _isLoadingMore = false;
       }
     }
   }

@@ -7,6 +7,7 @@ import 'thread_list_state.dart';
 class ThreadListCubit extends Cubit<ThreadListState> {
   final ThreadRepository _repository;
   String? _searchQuery;
+  bool _isLoadingMore = false;
 
   ThreadListCubit({ThreadRepository? repository})
       : _repository = repository ?? ThreadRepository(),
@@ -20,6 +21,7 @@ class ThreadListCubit extends Cubit<ThreadListState> {
     }
     emit(ThreadListLoading());
     try {
+      _isLoadingMore = false;
       final response = await _repository.fetchThreads(
         page: 1,
         search: _searchQuery,
@@ -39,8 +41,10 @@ class ThreadListCubit extends Cubit<ThreadListState> {
 
   /// Load next page (infinite scroll) — carries the active search query
   Future<void> loadMore() async {
+    if (_isLoadingMore) return;
     final currentState = state;
     if (currentState is ThreadListLoaded && !currentState.hasReachedMax) {
+      _isLoadingMore = true;
       try {
         final nextPage = currentState.currentPage + 1;
         final response = await _repository.fetchThreads(
@@ -48,10 +52,13 @@ class ThreadListCubit extends Cubit<ThreadListState> {
           search: _searchQuery,
         );
 
+        final existingIds = currentState.threads.map((t) => t.id).toSet();
+        final newThreads = response.data.where((t) => !existingIds.contains(t.id)).toList();
+
         emit(
           currentState.copyWith(
             threads: List.of(currentState.threads)
-              ..addAll(response.data),
+              ..addAll(newThreads),
             hasReachedMax:
                 response.meta.currentPage >= response.meta.lastPage,
             currentPage: nextPage,
@@ -59,6 +66,8 @@ class ThreadListCubit extends Cubit<ThreadListState> {
         );
       } catch (_) {
         // Keep the existing list state if next page fails
+      } finally {
+        _isLoadingMore = false;
       }
     }
   }
