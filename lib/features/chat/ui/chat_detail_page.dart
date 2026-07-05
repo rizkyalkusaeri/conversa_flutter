@@ -62,6 +62,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   bool _isSelecting = false;
   final Set<int> _selectedMessageIds = {};
   bool _isForwarding = false;
+  ChatMessageModel? _replyToMessage;
 
   @override
   void initState() {
@@ -168,6 +169,84 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   void _onSearchChanged(String query) {
     context.read<ChatDetailCubit>().loadInitialChats(searchQuery: query);
+  }
+
+  int? _highlightedMessageId;
+
+  void _scrollToMessage(int parentId) {
+    final loadedState = context.read<ChatDetailCubit>().state;
+    if (loadedState is ChatDetailLoaded) {
+      final targetIndex = loadedState.chats.indexWhere((c) => c.id == parentId);
+      if (targetIndex != -1) {
+        // Target exists in memory!
+        final adjustedIndex = targetIndex;
+        // ListView is reversed, index 0 is at bottom
+        double estimatedOffset = adjustedIndex * 110.0;
+        
+        if (estimatedOffset > _scrollController.position.maxScrollExtent) {
+          estimatedOffset = _scrollController.position.maxScrollExtent;
+        }
+        
+        _scrollController.animateTo(
+          estimatedOffset,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+        
+        setState(() {
+          _highlightedMessageId = parentId;
+        });
+        
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && _highlightedMessageId == parentId) {
+            setState(() {
+              _highlightedMessageId = null;
+            });
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Memuat pesan lama...'),
+            duration: Duration(milliseconds: 800),
+          ),
+        );
+        _loadMoreUntilFound(parentId);
+      }
+    }
+  }
+
+  Future<void> _loadMoreUntilFound(int targetId) async {
+    final cubit = context.read<ChatDetailCubit>();
+    bool found = false;
+    
+    for (int attempt = 0; attempt < 5; attempt++) {
+      final loadedState = cubit.state;
+      if (loadedState is! ChatDetailLoaded) break;
+      
+      final targetIndex = loadedState.chats.indexWhere((c) => c.id == targetId);
+      if (targetIndex != -1) {
+        found = true;
+        _scrollToMessage(targetId);
+        break;
+      }
+      
+      if (loadedState.hasReachedMax) {
+        break;
+      }
+      
+      await cubit.loadMoreChats();
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    if (!found && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesan asal tidak ditemukan atau sudah dihapus'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _pickAttachment(BuildContext context) async {
@@ -435,7 +514,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
 
-    context.read<ChatDetailCubit>().sendMessage(text, null);
+    context.read<ChatDetailCubit>().sendMessage(text, null, parentId: _replyToMessage?.id);
+    if (_replyToMessage != null) {
+      setState(() {
+        _replyToMessage = null;
+      });
+    }
     _msgController.clear();
   }
 
@@ -581,8 +665,17 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
                               final chat = chats[adjustedIndex];
                               final isMe = chat.senderId == _currentUserId;
+                              final isSystem = chat.messageType == 'SYSTEM';
 
-                              return _buildMessageBubble(chat, isMe);
+                              return SwipeToReply(
+                                enabled: !_isSelecting && !isSystem,
+                                onSwipe: () {
+                                  setState(() {
+                                    _replyToMessage = chat;
+                                  });
+                                },
+                                child: _buildMessageBubble(chat, isMe),
+                              );
                             },
                           ),
                         );
@@ -747,6 +840,27 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           ),
         ),
         actions: [
+          if (_selectedMessageIds.length == 1)
+            IconButton(
+              icon: const Icon(Icons.reply, color: Colors.white),
+              tooltip: 'Balas',
+              onPressed: () {
+                final selectedId = _selectedMessageIds.first;
+                final loadedState = context.read<ChatDetailCubit>().state;
+                if (loadedState is ChatDetailLoaded) {
+                  try {
+                    final chat = loadedState.chats.firstWhere((c) => c.id == selectedId);
+                    setState(() {
+                      _replyToMessage = chat;
+                      _isSelecting = false;
+                      _selectedMessageIds.clear();
+                    });
+                  } catch (e) {
+                    debugPrint('Error finding replied message: $e');
+                  }
+                }
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.forward_rounded, color: Colors.white),
             tooltip: 'Teruskan',
@@ -767,11 +881,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           ? TextField(
               controller: _searchController,
               autofocus: true,
-              style: const TextStyle(color: AppColors.textDark),
+              style: const TextStyle(color: AppColors.textDark, fontFamily: 'Poppins'),
               decoration: const InputDecoration(
                 hintText: 'Cari pesan...',
                 border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.grey),
+                hintStyle: TextStyle(color: Colors.grey, fontFamily: 'Poppins'),
               ),
               onSubmitted: _onSearchChanged,
             )
@@ -1232,7 +1346,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: isMe ? AppColors.primary : Colors.white,
+                    color: _highlightedMessageId == chat.id
+                        ? (isMe ? AppColors.primary.withValues(alpha: 0.7) : Colors.amber.shade100)
+                        : (isMe ? AppColors.primary : Colors.white),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
@@ -1254,6 +1370,52 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (chat.parent != null) ...[
+                        GestureDetector(
+                          onTap: () => _scrollToMessage(chat.parentId!),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isMe
+                                  ? Colors.black.withValues(alpha: 0.1)
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border(
+                                left: BorderSide(
+                                  color: isMe ? Colors.white : AppColors.primary,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  chat.parent!.senderName ?? "User",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: isMe ? Colors.white70 : AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  chat.parent!.messageContent ??
+                                      (chat.parent!.attachmentName ?? "📎 Lampiran"),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isMe ? Colors.white60 : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       if (chat.attachmentUrl != null) ...[
                         GestureDetector(
                           onTap: _isSelecting
@@ -1453,6 +1615,60 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_replyToMessage != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300),
+                    bottom: BorderSide(color: Colors.grey.shade200),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _replyToMessage!.senderName ?? "User",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _replyToMessage!.messageContent ??
+                                (_replyToMessage!.attachmentName ?? "📎 Lampiran"),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                      onPressed: () => setState(() => _replyToMessage = null),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: const BoxDecoration(
@@ -1491,18 +1707,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           Expanded(
                             child: TextField(
                               controller: _msgController,
+                              style: const TextStyle(fontFamily: 'Poppins'),
                               decoration: const InputDecoration(
                                 hintText: "Type a message...",
-                                hintStyle: TextStyle(color: Colors.grey),
+                                hintStyle: TextStyle(color: Colors.grey, fontFamily: 'Poppins'),
                                 border: InputBorder.none,
                               ),
                               textCapitalization: TextCapitalization.sentences,
                               maxLines: null,
                             ),
-                          ),
-                          const Icon(
-                            Icons.emoji_emotions_outlined,
-                            color: Colors.grey,
                           ),
                         ],
                       ),
@@ -1548,6 +1761,92 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           ],
         );
       },
+    );
+  }
+}
+
+class SwipeToReply extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onSwipe;
+  final bool enabled;
+
+  const SwipeToReply({
+    super.key,
+    required this.child,
+    required this.onSwipe,
+    this.enabled = true,
+  });
+
+  @override
+  State<SwipeToReply> createState() => _SwipeToReplyState();
+}
+
+class _SwipeToReplyState extends State<SwipeToReply> {
+  double _dragExtent = 0.0;
+  bool _triggered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+
+    return GestureDetector(
+      onHorizontalDragUpdate: (details) {
+        if (details.primaryDelta! > 0) {
+          setState(() {
+            _dragExtent += details.primaryDelta!;
+            if (_dragExtent > 60 && !_triggered) {
+              _triggered = true;
+              HapticFeedback.lightImpact();
+            }
+          });
+        } else if (details.primaryDelta! < 0 && _dragExtent > 0) {
+          setState(() {
+            _dragExtent = (_dragExtent + details.primaryDelta!).clamp(0.0, double.infinity);
+          });
+        }
+      },
+      onHorizontalDragEnd: (details) {
+        if (_triggered) {
+          widget.onSwipe();
+        }
+        setState(() {
+          _dragExtent = 0.0;
+          _triggered = false;
+        });
+      },
+      onHorizontalDragCancel: () {
+        setState(() {
+          _dragExtent = 0.0;
+          _triggered = false;
+        });
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -40 + (_dragExtent.clamp(0.0, 60.0) / 60.0 * 40.0),
+            top: 0,
+            bottom: 0,
+            child: Opacity(
+              opacity: (_dragExtent.clamp(0.0, 60.0) / 60.0).toDouble(),
+              child: const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(left: 12.0),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.black12,
+                    child: Icon(Icons.reply, size: 16, color: Colors.grey),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Transform.translate(
+            offset: Offset(_dragExtent.clamp(0.0, 60.0), 0.0),
+            child: widget.child,
+          ),
+        ],
+      ),
     );
   }
 }

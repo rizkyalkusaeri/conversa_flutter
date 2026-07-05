@@ -73,7 +73,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
     }
   }
 
-  Future<void> sendMessage(String text, XFile? attachment) async {
+  Future<void> sendMessage(String text, XFile? attachment, {int? parentId}) async {
     if (state is ChatDetailLoaded) {
       final currentState = state as ChatDetailLoaded;
 
@@ -85,7 +85,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
 
       try {
         final newMessage = await _repository.sendChat(
-            initialSession.id, text, attachment);
+            initialSession.id, text, attachment, parentId: parentId);
 
         if (state is! ChatDetailLoaded) return;
         // Baca state TERBARU setelah await (bukan snapshot lama) agar tidak
@@ -209,6 +209,8 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
         createdAt: newMessage.createdAt,
         senderId: newMessage.senderId,
         senderName: newMessage.senderName,
+        parentId: newMessage.parentId,
+        parent: newMessage.parent,
       );
 
       final updatedChats = List.of(currentState.chats)..insert(0, updatedMessage);
