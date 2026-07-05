@@ -65,12 +65,16 @@ class ChatService {
     }
   }
 
-  Future<ChatMessageModel> sendChat(String sessionUuid, String text, XFile? attachment) async {
+  Future<ChatMessageModel> sendChat(String sessionUuid, String text, XFile? attachment, {int? parentId}) async {
     try {
       FormData formData = FormData();
       
       if (text.isNotEmpty) {
         formData.fields.add(MapEntry('message_content', text));
+      }
+
+      if (parentId != null) {
+        formData.fields.add(MapEntry('parent_id', parentId.toString()));
       }
       
       if (attachment != null) {

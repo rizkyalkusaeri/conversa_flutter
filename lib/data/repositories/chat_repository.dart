@@ -20,8 +20,8 @@ class ChatRepository {
     return _service.markAsRead(sessionUuid);
   }
 
-  Future<ChatMessageModel> sendChat(String sessionUuid, String text, XFile? attachment) {
-    return _service.sendChat(sessionUuid, text, attachment);
+  Future<ChatMessageModel> sendChat(String sessionUuid, String text, XFile? attachment, {int? parentId}) {
+    return _service.sendChat(sessionUuid, text, attachment, parentId: parentId);
   }
 
   Future<void> forwardChats(List<int> messageIds, List<String> destinationSessionUuids) {

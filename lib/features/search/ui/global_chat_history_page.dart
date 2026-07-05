@@ -52,6 +52,84 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
     context.read<GlobalChatCubit>().loadInitialChats(searchQuery: query);
   }
 
+  int? _highlightedMessageId;
+
+  void _scrollToMessage(int parentId) {
+    final loadedState = context.read<GlobalChatCubit>().state;
+    if (loadedState is GlobalChatLoaded) {
+      final targetIndex = loadedState.chats.indexWhere((c) => c.id == parentId);
+      if (targetIndex != -1) {
+        // Target exists in memory!
+        final adjustedIndex = targetIndex;
+        // ListView is reversed, index 0 is at bottom
+        double estimatedOffset = adjustedIndex * 110.0;
+        
+        if (estimatedOffset > _scrollController.position.maxScrollExtent) {
+          estimatedOffset = _scrollController.position.maxScrollExtent;
+        }
+        
+        _scrollController.animateTo(
+          estimatedOffset,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+        
+        setState(() {
+          _highlightedMessageId = parentId;
+        });
+        
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && _highlightedMessageId == parentId) {
+            setState(() {
+              _highlightedMessageId = null;
+            });
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Memuat pesan lama...'),
+            duration: Duration(milliseconds: 800),
+          ),
+        );
+        _loadMoreUntilFound(parentId);
+      }
+    }
+  }
+
+  Future<void> _loadMoreUntilFound(int targetId) async {
+    final cubit = context.read<GlobalChatCubit>();
+    bool found = false;
+    
+    for (int attempt = 0; attempt < 5; attempt++) {
+      final loadedState = cubit.state;
+      if (loadedState is! GlobalChatLoaded) break;
+      
+      final targetIndex = loadedState.chats.indexWhere((c) => c.id == targetId);
+      if (targetIndex != -1) {
+        found = true;
+        _scrollToMessage(targetId);
+        break;
+      }
+      
+      if (loadedState.hasReachedMax) {
+        break;
+      }
+      
+      await cubit.loadMoreChats();
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
+    if (!found && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesan asal tidak ditemukan atau sudah dihapus'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -252,7 +330,7 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _highlightedMessageId == chat.id ? Colors.amber.shade100 : Colors.white,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(16),
                       topRight: Radius.circular(16),
@@ -266,6 +344,50 @@ class _GlobalChatHistoryPageState extends State<GlobalChatHistoryPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (chat.parent != null) ...[
+                        GestureDetector(
+                          onTap: () => _scrollToMessage(chat.parentId!),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                              border: const Border(
+                                left: BorderSide(
+                                  color: AppColors.primary,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  chat.parent!.senderName ?? "User",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  chat.parent!.messageContent ??
+                                      (chat.parent!.attachmentName ?? "📎 Lampiran"),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       if (chat.attachmentUrl != null) ...[
                         _buildAttachment(context, chat),
                         if (chat.messageContent != null && chat.messageContent!.isNotEmpty) 
