@@ -7,6 +7,8 @@ import 'package:open_file/open_file.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../network/api_config.dart';
+
 // ─────────────────────────────────────────────
 // Custom Exceptions
 // ─────────────────────────────────────────────
@@ -61,19 +63,29 @@ class AppVersionInfo {
 
 class UpdateService {
   /// Base URL public share Nextcloud
-  static const String _nextcloudToken = 'fMkiYKKqRkz2Lmp';
   static const String _nextcloudBaseUrl = 'https://cloud.fi-link.id';
-  static const String _folderPath = '/Aplikasi Android';
+
+  static String get _nextcloudToken =>
+      ApiConfig.isProduction ? 'fMkiYKKqRkz2Lmp' : 'EpTF2aqmFj4a4Ts';
+
+  static String get _folderPath =>
+      ApiConfig.isProduction ? '/Aplikasi Android' : '';
 
   /// URL untuk fetch version.json
-  static String get _versionJsonUrl =>
-      '$_nextcloudBaseUrl/s/$_nextcloudToken/download'
-      '?path=${Uri.encodeComponent(_folderPath)}&files=version.json';
+  static String get _versionJsonUrl {
+    final pathParam = _folderPath.isNotEmpty
+        ? 'path=${Uri.encodeComponent(_folderPath)}&'
+        : '';
+    return '$_nextcloudBaseUrl/s/$_nextcloudToken/download?${pathParam}files=version.json';
+  }
 
   /// URL untuk download APK
-  static String _apkDownloadUrl(String filename) =>
-      '$_nextcloudBaseUrl/s/$_nextcloudToken/download'
-      '?path=${Uri.encodeComponent(_folderPath)}&files=${Uri.encodeComponent(filename)}';
+  static String _apkDownloadUrl(String filename) {
+    final pathParam = _folderPath.isNotEmpty
+        ? 'path=${Uri.encodeComponent(_folderPath)}&'
+        : '';
+    return '$_nextcloudBaseUrl/s/$_nextcloudToken/download?${pathParam}files=${Uri.encodeComponent(filename)}';
+  }
 
   /// Cek apakah ada versi terbaru.
   /// Hanya berjalan di production build.

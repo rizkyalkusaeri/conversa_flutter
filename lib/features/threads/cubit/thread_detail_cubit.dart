@@ -47,9 +47,13 @@ class ThreadDetailCubit extends Cubit<ThreadDetailState> {
         page: nextPage,
       );
 
+      final newFetched = response.data;
       final newComments = refresh
-          ? response.data
-          : [...currentState.comments, ...response.data];
+          ? newFetched
+          : [
+              ...currentState.comments,
+              ...newFetched.where((c) => !currentState.comments.any((ec) => ec.id == c.id))
+            ];
 
       final hasMore = response.meta.currentPage < response.meta.lastPage;
 

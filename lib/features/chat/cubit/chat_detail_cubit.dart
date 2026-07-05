@@ -14,6 +14,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   final SessionModel initialSession;
   late SessionModel currentSession;
   int _currentPage = 1;
+  bool _isLoadingMore = false;
 
   ChatDetailCubit({
     required this.initialSession,
@@ -28,6 +29,7 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
     emit(const ChatDetailLoading(isFirstLoad: true));
     try {
       _currentPage = 1;
+      _isLoadingMore = false;
       final response = await _repository.getChats(initialSession.id, _currentPage, search: searchQuery);
       emit(ChatDetailLoaded(
         session: currentSession,
@@ -41,24 +43,32 @@ class ChatDetailCubit extends Cubit<ChatDetailState> {
   }
 
   Future<void> loadMoreChats() async {
+    if (_isLoadingMore) return;
     if (state is ChatDetailLoaded) {
       final currentState = state as ChatDetailLoaded;
       if (currentState.hasReachedMax) return;
 
+      _isLoadingMore = true;
       try {
         _currentPage++;
         final response = await _repository.getChats(initialSession.id, _currentPage, search: currentState.searchQuery);
         
         final hasReachedMax = response.meta.currentPage == response.meta.lastPage || response.data.isEmpty;
         
+        // Deduplicate chats by ID to prevent duplication in UI
+        final existingIds = currentState.chats.map((c) => c.id).toSet();
+        final newChats = response.data.where((c) => !existingIds.contains(c.id)).toList();
+
         emit(currentState.copyWith(
-          chats: List.of(currentState.chats)..addAll(response.data),
+          chats: List.of(currentState.chats)..addAll(newChats),
           hasReachedMax: hasReachedMax,
         ));
       } catch (e) {
         // Rollback current page if failed
         _currentPage--;
-        emit(ChatDetailError(_friendlyError(e)));
+        debugPrint('[ChatDetailCubit] Failed to load more chats: $e');
+      } finally {
+        _isLoadingMore = false;
       }
     }
   }
