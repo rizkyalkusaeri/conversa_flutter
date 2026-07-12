@@ -739,7 +739,7 @@ class _SearchPageState extends State<SearchPage>
                     child: _buildPersonChip(
                       Icons.support_agent_outlined,
                       session.resolverName ?? 'Menunggu',
-                      'Penyelesai',
+                      'User Dituju',
                       onTap: session.resolverId != null
                           ? () => UserProfilePopup.show(
                               context,
@@ -860,7 +860,7 @@ class _SearchPageState extends State<SearchPage>
                       : null,
                 ),
                 _buildDetailRow(
-                  'Penyelesai',
+                  'User Dituju',
                   session.resolverName ?? 'Menunggu',
                   onTap: session.resolverId != null
                       ? () =>
