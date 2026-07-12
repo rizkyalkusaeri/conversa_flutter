@@ -778,7 +778,7 @@ class _SessionListViewState extends State<SessionListView> {
                   _buildDetailRow('No. Appl', session.noAppl!),
                 _buildDetailRow('Pemohon', session.requesterName ?? '-'),
                 _buildDetailRow(
-                  'Penyelesai',
+                  'User Dituju',
                   session.resolverName ?? 'Menunggu',
                 ),
                 _buildDetailRow('Deskripsi', session.description ?? '-'),
