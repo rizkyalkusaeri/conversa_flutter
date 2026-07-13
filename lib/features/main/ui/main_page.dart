@@ -1,5 +1,7 @@
 import 'package:fifgroup_android_ticketing/features/threads/ui/threads_page.dart';
 import 'package:flutter/material.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../chat/ui/chat_page.dart';
 import '../../profile/ui/profile_page.dart';
 import '../../../core/constants/app_colors.dart';
@@ -18,6 +20,12 @@ import '../../../core/widgets/offline_banner.dart';
 import '../../profile/ui/privacy_policy_page.dart';
 import '../../chat/cubit/active_session_count_cubit.dart';
 import '../../chat/cubit/active_session_count_state.dart';
+import '../../../core/services/share_intent_service.dart';
+import '../../chat/ui/widgets/share_target_session_sheet.dart';
+import '../../chat/ui/chat_detail_page.dart';
+import '../../chat/cubit/chat_detail_cubit.dart';
+import '../../chat/cubit/session_action_cubit.dart';
+import '../../../data/models/session_model.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -55,6 +63,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _checkPrivacyPolicy();
     // Bersihkan semua notifikasi saat app pertama kali dibuka.
     NotificationService.clearAll();
+    // Daftarkan callback untuk menangani incoming share intents
+    ShareIntentService.instance.registerCallback(_handleIncomingShare);
   }
 
   Future<void> _checkPrivacyPolicy() async {
@@ -297,9 +307,69 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Unregister callback untuk incoming share intents
+    ShareIntentService.instance.unregisterCallback();
     // Putuskan koneksi Echo sepenuhnya saat MainPage di-dispose (logout)
     EchoService.disconnect();
     super.dispose();
+  }
+
+  void _handleIncomingShare(List<SharedMediaFile> sharedFiles) async {
+    if (sharedFiles.isEmpty) return;
+
+    debugPrint('[MainPage] Handling incoming shared content of length: ${sharedFiles.length}');
+
+    // 1. Klasifikasi file: text/urls vs attachments
+    String? sharedText;
+    final List<XFile> attachmentFiles = [];
+
+    for (final file in sharedFiles) {
+      if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
+        sharedText = (sharedText == null) ? file.path : '$sharedText\n${file.path}';
+      } else {
+        attachmentFiles.add(XFile(file.path, name: file.path.split('/').last));
+      }
+    }
+
+    if (mounted) {
+      // 2. Tampilkan bottom sheet untuk memilih session target
+      final SessionModel? selectedSession = await showModalBottomSheet<SessionModel>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => ShareTargetSessionSheet(
+          currentUserId: _currentUserId,
+        ),
+      );
+
+      if (selectedSession != null && mounted) {
+        // 3. Navigate ke ChatDetailPage
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (context) =>
+                      ChatDetailCubit(initialSession: selectedSession)
+                        ..loadInitialChats(),
+                ),
+                BlocProvider(create: (context) => SessionActionCubit()),
+              ],
+              child: ChatDetailPage(
+                session: selectedSession,
+                sharedText: sharedText,
+                sharedFiles: attachmentFiles.isNotEmpty ? attachmentFiles : null,
+              ),
+            ),
+          ),
+        ).then((_) {
+          if (mounted) {
+            RealtimeEventBus.instance.notifySessionRefresh();
+          }
+        });
+      }
+    }
   }
 
   void _onItemTapped(int index) {
