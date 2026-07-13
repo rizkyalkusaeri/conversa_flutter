@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/services/fcm_service.dart';
 import 'core/services/navigation_service.dart';
+import 'core/services/share_intent_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/connectivity_service.dart';
 import 'features/auth/cubit/app_auth/app_auth_cubit.dart';
@@ -37,6 +38,9 @@ void main() async {
   // Init ConnectivityService — mulai monitoring konektivitas sejak awal
   // unawaited: tidak memblokir startup, status awal akan diupdate async
   await ConnectivityService.instance.init();
+
+  // Inisialisasi ShareIntentService untuk Android
+  ShareIntentService.instance.init();
 
   runApp(const MyApp());
 }

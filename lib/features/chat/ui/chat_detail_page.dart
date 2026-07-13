@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:fifgroup_android_ticketing/core/network/api_config.dart';
+import '../../../core/network/dio_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,8 +41,15 @@ import '../../../core/widgets/video_attachment_widget.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final SessionModel session;
+  final String? sharedText;
+  final List<XFile>? sharedFiles;
 
-  const ChatDetailPage({super.key, required this.session});
+  const ChatDetailPage({
+    super.key,
+    required this.session,
+    this.sharedText,
+    this.sharedFiles,
+  });
 
   @override
   State<ChatDetailPage> createState() => _ChatDetailPageState();
@@ -73,6 +83,18 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       _currentUserId = authState.user.id;
     }
     _setupListeners();
+
+    // Handle shared text/link
+    if (widget.sharedText != null && widget.sharedText!.isNotEmpty) {
+      _msgController.text = widget.sharedText!;
+    }
+
+    // Handle shared files
+    if (widget.sharedFiles != null && widget.sharedFiles!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showSharedFilesPreview(widget.sharedFiles!);
+      });
+    }
   }
 
   // Reload pesan yang mungkin terlewat saat app kembali dari background
@@ -510,6 +532,119 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     }
   }
 
+  Future<void> _showSharedFilesPreview(List<XFile> files) async {
+    final cubit = context.read<ChatDetailCubit>();
+    final navigator = Navigator.of(context);
+
+    // Filter extension files to detect if all are media (gallery) or doc
+    final isAllMedia = files.every((f) {
+      final ext = f.path.toLowerCase().split('.').last;
+      return {'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'mp4', 'mov', 'avi', 'mkv', 'webm', '3gp'}.contains(ext);
+    });
+    final sourceType = isAllMedia ? 'gallery' : 'document';
+
+    // Tampilkan preview sheet multi-file
+    final List<XFile>? confirmed = await showModalBottomSheet<List<XFile>>(
+      context: navigator.context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MultiAttachmentPreviewSheet(
+        initialFiles: files,
+        sourceType: sourceType,
+      ),
+    );
+
+    if (!mounted) return;
+    if (confirmed != null && confirmed.isNotEmpty) {
+      cubit.sendMultipleAttachments(confirmed);
+    }
+  }
+
+  Future<void> _shareMessages(List<ChatMessageModel> messages) async {
+    if (messages.isEmpty) return;
+
+    if (messages.length == 1) {
+      final msg = messages.first;
+      if (msg.attachmentUrl != null && msg.attachmentUrl!.isNotEmpty) {
+        try {
+          // Tampilkan loading indicator
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => const Center(child: CircularProgressIndicator()),
+          );
+
+          // Resolve full download URL
+          final String downloadUrl;
+          if (msg.messageType == 'IMAGE' || msg.isImage) {
+            downloadUrl = ApiConfig.imageUrl + msg.attachmentUrl!;
+          } else {
+            downloadUrl = ApiConfig.getDownloadUrl(msg.attachmentUrl!, msg.attachmentName);
+          }
+
+          debugPrint('Downloading attachment for sharing: $downloadUrl');
+
+          // Download file ke temporary directory menggunakan authenticated DioClient
+          final dio = DioClient.getInstance;
+          final tempDir = await getTemporaryDirectory();
+          final fileName = msg.attachmentName ?? msg.attachmentUrl!.split('/').last;
+          final filePath = '${tempDir.path}/$fileName';
+
+          await dio.download(downloadUrl, filePath);
+
+          // Tutup loading dialog
+          if (mounted) Navigator.pop(context);
+
+          // Share file
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [XFile(filePath)],
+              text: msg.messageContent,
+            ),
+          );
+          return;
+        } catch (e) {
+          debugPrint('Error sharing file attachment: $e');
+          // Tutup loading dialog jika error
+          if (mounted) Navigator.pop(context);
+          // Fallback ke share link
+        }
+      }
+    }
+
+    // Default: share as formatted text
+    final buffer = StringBuffer();
+    for (int i = 0; i < messages.length; i++) {
+      final msg = messages[i];
+      final sender = msg.senderName ?? 'User';
+      if (msg.messageContent != null && msg.messageContent!.isNotEmpty) {
+        buffer.write('[$sender]: ${msg.messageContent}');
+      } else if (msg.attachmentName != null) {
+        buffer.write('[$sender]: 📎 ${msg.attachmentName}');
+      }
+      
+      if (msg.attachmentUrl != null && msg.attachmentUrl!.isNotEmpty) {
+        final String fullUrl;
+        if (msg.messageType == 'IMAGE' || msg.isImage) {
+          fullUrl = ApiConfig.imageUrl + msg.attachmentUrl!;
+        } else {
+          fullUrl = ApiConfig.getDownloadUrl(msg.attachmentUrl!, msg.attachmentName);
+        }
+        buffer.write('\nLink: $fullUrl');
+      }
+      
+      if (i < messages.length - 1) {
+        buffer.write('\n\n');
+      }
+    }
+
+    await SharePlus.instance.share(
+      ShareParams(
+        text: buffer.toString(),
+      ),
+    );
+  }
+
   void _sendMessage() {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
@@ -865,6 +1000,26 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             icon: const Icon(Icons.forward_rounded, color: Colors.white),
             tooltip: 'Teruskan',
             onPressed: _selectedMessageIds.isEmpty ? null : _showForwardBottomSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            tooltip: 'Bagikan',
+            onPressed: _selectedMessageIds.isEmpty
+                ? null
+                : () {
+                    final loadedState = context.read<ChatDetailCubit>().state;
+                    if (loadedState is ChatDetailLoaded) {
+                      final selectedMessages = loadedState.chats
+                          .where((c) => _selectedMessageIds.contains(c.id))
+                          .toList();
+                      final orderedMessages = selectedMessages.reversed.toList();
+                      _shareMessages(orderedMessages);
+                      setState(() {
+                        _isSelecting = false;
+                        _selectedMessageIds.clear();
+                      });
+                    }
+                  },
           ),
         ],
       );
