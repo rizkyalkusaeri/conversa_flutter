@@ -1001,26 +1001,27 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             tooltip: 'Teruskan',
             onPressed: _selectedMessageIds.isEmpty ? null : _showForwardBottomSheet,
           ),
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            tooltip: 'Bagikan',
-            onPressed: _selectedMessageIds.isEmpty
-                ? null
-                : () {
-                    final loadedState = context.read<ChatDetailCubit>().state;
-                    if (loadedState is ChatDetailLoaded) {
-                      final selectedMessages = loadedState.chats
-                          .where((c) => _selectedMessageIds.contains(c.id))
-                          .toList();
-                      final orderedMessages = selectedMessages.reversed.toList();
-                      _shareMessages(orderedMessages);
-                      setState(() {
-                        _isSelecting = false;
-                        _selectedMessageIds.clear();
-                      });
-                    }
-                  },
-          ),
+          if (_selectedMessageIds.length == 1)
+            IconButton(
+              icon: const Icon(Icons.share, color: Colors.white),
+              tooltip: 'Bagikan',
+              onPressed: _selectedMessageIds.isEmpty
+                  ? null
+                  : () {
+                      final loadedState = context.read<ChatDetailCubit>().state;
+                      if (loadedState is ChatDetailLoaded) {
+                        final selectedMessages = loadedState.chats
+                            .where((c) => _selectedMessageIds.contains(c.id))
+                            .toList();
+                        final orderedMessages = selectedMessages.reversed.toList();
+                        _shareMessages(orderedMessages);
+                        setState(() {
+                          _isSelecting = false;
+                          _selectedMessageIds.clear();
+                        });
+                      }
+                    },
+            ),
         ],
       );
     }
