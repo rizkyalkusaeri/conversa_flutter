@@ -1,4 +1,4 @@
-package com.conversa.fifgroup
+package id.filink.finatra
 
 import io.flutter.embedding.android.FlutterActivity
 
