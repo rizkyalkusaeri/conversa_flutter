@@ -50,17 +50,18 @@ class ConnectivityService {
     unawaited(_checkAndUpdate());
 
     // Listen perubahan interface jaringan secara reaktif
-    _connectivitySub = Connectivity().onConnectivityChanged.listen(
-      (results) async {
-        // Jika tidak ada interface aktif sama sekali → langsung offline
-        if (results.isEmpty || results.every((r) => r == ConnectivityResult.none)) {
-          _updateStatus(ConnectivityStatus.offline);
-          return;
-        }
-        // Ada interface aktif → konfirmasi dengan TCP ping
-        await _checkAndUpdate();
-      },
-    );
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) async {
+      // Jika tidak ada interface aktif sama sekali → langsung offline
+      if (results.isEmpty ||
+          results.every((r) => r == ConnectivityResult.none)) {
+        _updateStatus(ConnectivityStatus.offline);
+        return;
+      }
+      // Ada interface aktif → konfirmasi dengan TCP ping
+      await _checkAndUpdate();
+    });
   }
 
   /// Periksa apakah ada internet sungguhan (TCP ping, bukan hanya interface check).
