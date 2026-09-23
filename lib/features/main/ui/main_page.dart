@@ -14,7 +14,6 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/services/realtime_event_bus.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/update_service.dart';
-import '../../../core/widgets/update_dialog.dart';
 import '../../../core/storage/storage_manager.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../profile/ui/privacy_policy_page.dart';
@@ -80,15 +79,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   Future<void> _initUpdate() async {
-    // Cek update dari Nextcloud (hanya di production, async — tidak block UI)
-    final versionInfo = await UpdateService.checkForUpdate();
-    if (versionInfo != null && mounted) {
-      // Tunda sedikit agar build pertama selesai sebelum dialog muncul
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) {
-        await UpdateDialog.show(context, versionInfo);
-      }
-    }
+    // Cek update dari Google Play Store secara asinkron
+    UpdateService.checkForUpdate();
   }
 
   @override

@@ -2,7 +2,6 @@
 import 'package:fifgroup_android_ticketing/core/widgets/form_label.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/form_text_field.dart';
 import 'package:fifgroup_android_ticketing/core/widgets/app_version_text.dart';
-import 'package:fifgroup_android_ticketing/core/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -29,13 +28,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _checkUpdate() async {
-    final versionInfo = await UpdateService.checkForUpdate();
-    if (versionInfo != null && mounted) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        await UpdateDialog.show(context, versionInfo);
-      }
-    }
+    // Jalankan cek update secara asinkron (tidak memblokir UI thread/rendering)
+    UpdateService.checkForUpdate();
   }
 
   @override
